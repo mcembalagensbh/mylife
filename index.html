@@ -1863,15 +1863,24 @@
                     App.supabase.from('saldos').select('*').eq('user_id', App.currentUser.id),
                     App.supabase.from('historico_pagamentos').select('*').eq('user_id', App.currentUser.id),
                     App.supabase.from('historico_acoes').select('*').eq('user_id', App.currentUser.id).order('data', { ascending: false }).limit(500),
-                    App.supabase.from('giros').select('*').eq('user_id', App.currentUser.id).catch(() => []),
-                    App.supabase.from('movimentacoes_giro').select('*').eq('user_id', App.currentUser.id).order('data', { ascending: false }).catch(() => [])
+                    App.supabase.from('giros').select('*').eq('user_id', App.currentUser.id),
+App.supabase.from('movimentacoes_giro').select('*').eq('user_id', App.currentUser.id).order('data', { ascending: false })
                 ];
 
-                const [
-                    { data: contas }, { data: regrasContas }, { data: eventos }, { data: eventosIndividuais },
-                    { data: regrasEventos }, { data: gastos }, { data: lista }, { data: saldos },
-                    { data: historico }, { data: historicoAcoes }, { data: giros }, { data: movimentacoes }
-                ] = await Promise.all(promises);
+               const results = await Promise.allSettled(promises);
+
+const contas = results[0].status === 'fulfilled' ? results[0].value.data : [];
+const regrasContas = results[1].status === 'fulfilled' ? results[1].value.data : [];
+const eventos = results[2].status === 'fulfilled' ? results[2].value.data : [];
+const eventosIndividuais = results[3].status === 'fulfilled' ? results[3].value.data : [];
+const regrasEventos = results[4].status === 'fulfilled' ? results[4].value.data : [];
+const gastos = results[5].status === 'fulfilled' ? results[5].value.data : [];
+const lista = results[6].status === 'fulfilled' ? results[6].value.data : [];
+const saldos = results[7].status === 'fulfilled' ? results[7].value.data : [];
+const historico = results[8].status === 'fulfilled' ? results[8].value.data : [];
+const historicoAcoes = results[9].status === 'fulfilled' ? results[9].value.data : [];
+const giros = results[10].status === 'fulfilled' ? results[10].value.data : [];
+const movimentacoes = results[11].status === 'fulfilled' ? results[11].value.data : [];
 
                 let excecoesRecorrencia = [];
                 try {

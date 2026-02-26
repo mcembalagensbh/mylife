@@ -142,7 +142,7 @@
             <input type="password" id="newPassword" placeholder="Digite sua nova senha (mínimo 6 caracteres)" autofocus>
         </div>
 
-        <button id="submitBtn" onclick="updatePassword()">
+        <button id="submitBtn" onclick="window.updatePassword()">
             <span id="btnText">Salvar nova senha</span>
             <span id="btnLoader" style="display: none;" class="loading"></span>
         </button>
@@ -153,129 +153,135 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // 🔐 SUAS CREDENCIAIS DO SUPABASE
-        const SUPABASE_URL = 'https://rirvrrlgjetsgwhqqfvq.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds';
-        
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // Função para extrair parâmetros da URL
-        function getUrlParams() {
-            const params = new URLSearchParams(window.location.hash.substring(1));
-            return {
-                access_token: params.get('access_token'),
-                refresh_token: params.get('refresh_token'),
-                type: params.get('type')
-            };
-        }
-
-        // Verificar se o usuário veio do link de recuperação
-        (async function checkSession() {
-            showMessage('Verificando link de recuperação...', 'info');
+        (function() {
+            // 🔐 SUAS CREDENCIAIS DO SUPABASE
+            const SUPABASE_URL = 'https://rirvrrlgjetsgwhqqfvq.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds';
             
-            try {
-                const params = getUrlParams();
+            // Criar cliente Supabase
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // Função para extrair parâmetros da URL
+            function getUrlParams() {
+                const params = new URLSearchParams(window.location.hash.substring(1));
+                return {
+                    access_token: params.get('access_token'),
+                    refresh_token: params.get('refresh_token'),
+                    type: params.get('type')
+                };
+            }
+
+            // Função para mostrar mensagens
+            function showMessage(text, type) {
+                const msgDiv = document.getElementById('statusMessage');
+                msgDiv.textContent = text;
+                msgDiv.className = 'message ' + type;
+            }
+
+            // Verificar se o usuário veio do link de recuperação
+            (async function checkSession() {
+                showMessage('Verificando link de recuperação...', 'info');
                 
-                // Se tiver access_token na URL, significa que é o link de recuperação
-                if (params.access_token && params.type === 'recovery') {
-                    // Configura a sessão com o token da URL
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: params.access_token,
-                        refresh_token: params.refresh_token
+                try {
+                    const params = getUrlParams();
+                    console.log('Parâmetros da URL:', params); // Para debug
+                    
+                    // Se tiver access_token na URL, significa que é o link de recuperação
+                    if (params.access_token && params.type === 'recovery') {
+                        // Configura a sessão com o token da URL
+                        const { data, error } = await supabase.auth.setSession({
+                            access_token: params.access_token,
+                            refresh_token: params.refresh_token
+                        });
+                        
+                        if (error) {
+                            console.error('Erro ao configurar sessão:', error);
+                            showMessage('Link inválido ou expirado. Solicite um novo.', 'error');
+                            return;
+                        }
+                        
+                        showMessage('Link válido! Digite sua nova senha.', 'success');
+                    } else {
+                        // Tenta pegar a sessão atual (pode ser que já esteja logado)
+                        const { data: { session }, error } = await supabase.auth.getSession();
+                        
+                        if (error || !session) {
+                            showMessage('Link inválido ou expirado. Solicite um novo.', 'error');
+                            return;
+                        }
+                        
+                        showMessage('Sessão válida! Digite sua nova senha.', 'success');
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar sessão:', error);
+                    showMessage('Erro ao verificar link. Tente novamente.', 'error');
+                }
+            })();
+
+            // Função de atualizar senha - definida no escopo global
+            window.updatePassword = async function() {
+                const newPassword = document.getElementById('newPassword').value.trim();
+                const submitBtn = document.getElementById('submitBtn');
+                const btnText = document.getElementById('btnText');
+                const btnLoader = document.getElementById('btnLoader');
+                
+                if (!newPassword) {
+                    showMessage('Digite uma nova senha', 'error');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    showMessage('A senha deve ter pelo menos 6 caracteres', 'error');
+                    return;
+                }
+
+                // Desabilita o botão durante o processo
+                submitBtn.disabled = true;
+                btnText.style.opacity = '0.7';
+                btnLoader.style.display = 'inline-block';
+                btnText.textContent = ' Atualizando...';
+
+                try {
+                    // Primeiro, verifica se tem uma sessão válida
+                    const { data: { session } } = await supabase.auth.getSession();
+                    
+                    if (!session) {
+                        throw new Error('Sessão expirada. Solicite um novo link.');
+                    }
+
+                    // Atualiza a senha
+                    const { error } = await supabase.auth.updateUser({ 
+                        password: newPassword 
                     });
+
+                    if (error) throw error;
                     
-                    if (error) {
-                        console.error('Erro ao configurar sessão:', error);
-                        showMessage('Link inválido ou expirado. Solicite um novo.', 'error');
-                        return;
-                    }
+                    showMessage('✅ Senha atualizada com sucesso! Redirecionando...', 'success');
                     
-                    showMessage('Link válido! Digite sua nova senha.', 'success');
-                } else {
-                    // Tenta pegar a sessão atual (pode ser que já esteja logado)
-                    const { data: { session }, error } = await supabase.auth.getSession();
+                    // Redirecionar para o login do seu site
+                    setTimeout(() => {
+                        window.location.href = 'https://mylife.app.br';
+                    }, 2000);
                     
-                    if (error || !session) {
-                        showMessage('Link inválido ou expirado. Solicite um novo.', 'error');
-                        return;
-                    }
+                } catch (error) {
+                    console.error('Erro ao atualizar senha:', error);
+                    showMessage('Erro: ' + (error.message || 'Falha ao atualizar senha'), 'error');
                     
-                    showMessage('Sessão válida! Digite sua nova senha.', 'success');
+                    // Reabilita o botão
+                    submitBtn.disabled = false;
+                    btnText.style.opacity = '1';
+                    btnLoader.style.display = 'none';
+                    btnText.textContent = 'Salvar nova senha';
                 }
-            } catch (error) {
-                console.error('Erro ao verificar sessão:', error);
-                showMessage('Erro ao verificar link. Tente novamente.', 'error');
-            }
+            };
+
+            // Permite enviar com Enter
+            document.getElementById('newPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    window.updatePassword();
+                }
+            });
         })();
-
-        window.updatePassword = async function() {
-            const newPassword = document.getElementById('newPassword').value.trim();
-            const submitBtn = document.getElementById('submitBtn');
-            const btnText = document.getElementById('btnText');
-            const btnLoader = document.getElementById('btnLoader');
-            
-            if (!newPassword) {
-                showMessage('Digite uma nova senha', 'error');
-                return;
-            }
-            
-            if (newPassword.length < 6) {
-                showMessage('A senha deve ter pelo menos 6 caracteres', 'error');
-                return;
-            }
-
-            // Desabilita o botão durante o processo
-            submitBtn.disabled = true;
-            btnText.style.opacity = '0.7';
-            btnLoader.style.display = 'inline-block';
-            btnText.textContent = ' Atualizando...';
-
-            try {
-                // Primeiro, verifica se tem uma sessão válida
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                if (!session) {
-                    throw new Error('Sessão expirada. Solicite um novo link.');
-                }
-
-                // Atualiza a senha
-                const { error } = await supabase.auth.updateUser({ 
-                    password: newPassword 
-                });
-
-                if (error) throw error;
-                
-                showMessage('✅ Senha atualizada com sucesso! Redirecionando...', 'success');
-                
-                // Redirecionar para o login do seu site
-                setTimeout(() => {
-                    window.location.href = 'https://mylife.app.br';
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Erro ao atualizar senha:', error);
-                showMessage('Erro: ' + (error.message || 'Falha ao atualizar senha'), 'error');
-                
-                // Reabilita o botão
-                submitBtn.disabled = false;
-                btnText.style.opacity = '1';
-                btnLoader.style.display = 'none';
-                btnText.textContent = 'Salvar nova senha';
-            }
-        };
-
-        function showMessage(text, type) {
-            const msgDiv = document.getElementById('statusMessage');
-            msgDiv.textContent = text;
-            msgDiv.className = 'message ' + type;
-        }
-
-        // Permite enviar com Enter
-        document.getElementById('newPassword').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                updatePassword();
-            }
-        });
     </script>
 </body>
 </html>

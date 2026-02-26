@@ -3174,18 +3174,22 @@
             if (pendentes.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-clock"></i> Pendentes</div>';
                 pendentes.forEach(i => {
-                    html += `<div class="item-card pendente" onclick="editarItemLista('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    // Removido onclick do card que abre edição - deixado apenas nos botões
+                    html += `<div class="item-card pendente" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
                             <div class="item-title"><span class="item-badge">${i.quantidade}x</span> ${i.descricao || 'Item sem descrição'}</div>
                             <div class="item-details">Adicionado por: ${i.added_by || 'Sistema'}</div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')">
+                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')" title="Marcar como comprado">
                                     <i class="fas fa-check"></i>
                                 </button>
                                 <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')">
                                     <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="action-btn edit" onclick="event.stopPropagation();editarItemLista('${i.id}')">
+                                    <i class="fas fa-edit"></i>
                                 </button>
                             ` : ''}
                         </div>
@@ -3196,17 +3200,21 @@
             if (comprados.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-check-double"></i> Comprados</div>';
                 comprados.forEach(i => {
-                    html += `<div class="item-card paga" onclick="editarItemLista('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    // Removido onclick do card que abre edição - deixado apenas nos botões
+                    html += `<div class="item-card paga" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
                             <div class="item-title"><span class="item-badge">${i.quantidade}x</span> ${i.descricao || 'Item sem descrição'}</div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')">
+                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')" title="Desmarcar">
                                     <i class="fas fa-undo"></i>
                                 </button>
                                 <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')">
                                     <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="action-btn edit" onclick="event.stopPropagation();editarItemLista('${i.id}')">
+                                    <i class="fas fa-edit"></i>
                                 </button>
                             ` : ''}
                         </div>
@@ -3365,7 +3373,7 @@
                 dataAtualizacao.setDate(dataAtualizacao.getDate() + 1);
                 
                 html += `<div style="padding:16px;background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;border-radius:8px;margin-bottom:12px">
-                    <div style="display:flex;justify-content:space-between;align-items-center">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
                         <div style="font-size:.9em;opacity:.9">Saldo Central</div>
                     </div>
                     <div style="font-size:1.8em;font-weight:700">${formatCurrency(central.valor)}</div>
@@ -6000,6 +6008,229 @@
         }
 
         document.addEventListener('DOMContentLoaded', init);
+
+        // FUNÇÕES CORRIGIDAS PARA GIROS
+        function abrirNovoGiro() {
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
+                    <input type="text" id="giroDescricao" class="form-input" placeholder="Ex: Empréstimo João">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor Inicial</label>
+                    <input type="text" id="giroValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-user"></i> Pessoa</label>
+                    <input type="text" id="giroPessoa" class="form-input" placeholder="Nome da pessoa">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="salvarNovoGiro()" style="flex:2"><i class="fas fa-save"></i> Salvar</button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
+                </div>
+            `;
+            abrirModal('Novo Giro', 'fa-hand-holding-usd', conteudo);
+        }
+
+        async function salvarNovoGiro() {
+            let desc = document.getElementById('giroDescricao')?.value.trim();
+            let valor = parseCurrency(document.getElementById('giroValor')?.value);
+            let pessoa = document.getElementById('giroPessoa')?.value.trim();
+
+            if (!desc || !valor || !pessoa) {
+                showToast('Preencha todos os campos', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('giros').insert({
+                    user_id: App.currentUser.id,
+                    descricao: desc,
+                    valor_inicial: valor,
+                    pessoa: pessoa,
+                    added_by: App.usuarioAtual || 'desconhecido'
+                });
+
+                await registrarHistorico('criacao_giro', `Giro criado: ${desc}`, { desc, valor, pessoa, usuario: App.usuarioAtual });
+                showToast('Giro criado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao criar giro:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        // FUNÇÃO EDIÇÃO GIRO CORRIGIDA
+        function editarGiro(id) {
+            let giro = App.dataCache.giros.find(g => g.id === id);
+            if (!giro) return;
+
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
+                    <input type="text" id="giroDescricaoEdit" class="form-input" value="${giro.descricao}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor Inicial</label>
+                    <input type="text" id="giroValorEdit" class="form-input" value="${giro.valor_inicial.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-user"></i> Pessoa</label>
+                    <input type="text" id="giroPessoaEdit" class="form-input" value="${giro.pessoa || ''}">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="salvarEdicaoGiro('${giro.id}')" style="flex:2"><i class="fas fa-save"></i> Salvar</button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
+                </div>
+            `;
+            abrirModal('Editar Giro', 'fa-edit', conteudo);
+        }
+
+        async function salvarEdicaoGiro(id) {
+            let desc = document.getElementById('giroDescricaoEdit')?.value.trim();
+            let valor = parseCurrency(document.getElementById('giroValorEdit')?.value);
+            let pessoa = document.getElementById('giroPessoaEdit')?.value.trim();
+
+            if (!desc || !valor || !pessoa) {
+                showToast('Preencha todos os campos', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('giros').update({
+                    descricao: desc,
+                    valor_inicial: valor,
+                    pessoa: pessoa
+                }).eq('id', id);
+
+                await registrarHistorico('edicao_giro', `Giro editado: ${desc}`, { id, usuario: App.usuarioAtual });
+                showToast('Giro atualizado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao editar giro:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        function deletarGiro(id) {
+            if (confirm('Tem certeza que deseja excluir este giro?')) {
+                (async () => {
+                    try {
+                        await App.supabase.from('giros').delete().eq('id', id);
+                        await App.supabase.from('movimentacoes_giro').delete().eq('giro_id', id);
+                        await registrarHistorico('exclusao_giro', `Giro excluído`, { id, usuario: App.usuarioAtual });
+                        showToast('Giro excluído!', 'success');
+                        await carregarDados(true);
+                        await mostrarConteudo();
+                    } catch (error) {
+                        console.error('Erro ao excluir giro:', error);
+                        showToast('Erro: ' + error.message, 'error');
+                    }
+                })();
+            }
+        }
+
+        function abrirPagamentoGiro(id, desc) {
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor a pagar</label>
+                    <input type="text" id="operacaoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-align-left"></i> Descrição (opcional)</label>
+                    <input type="text" id="operacaoDescricao" class="form-input" placeholder="Ex: Pagamento parcial">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-success" onclick="confirmarPagamentoGiro('${id}', '${desc}')" style="flex:2"><i class="fas fa-check"></i> Confirmar</button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
+                </div>
+            `;
+            abrirModal(`Pagar Giro: ${desc}`, 'fa-arrow-down', conteudo);
+        }
+
+        async function confirmarPagamentoGiro(id, desc) {
+            let valor = parseCurrency(document.getElementById('operacaoValor')?.value);
+            let descricao = document.getElementById('operacaoDescricao')?.value.trim() || 'Pagamento';
+
+            if (!valor || valor <= 0) {
+                showToast('Informe um valor válido', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('movimentacoes_giro').insert({
+                    user_id: App.currentUser.id,
+                    giro_id: id,
+                    tipo: 'pagamento',
+                    valor: valor,
+                    descricao: descricao,
+                    data: new Date().toISOString(),
+                    added_by: App.usuarioAtual || 'desconhecido'
+                });
+
+                await registrarHistorico('pagamento_giro', `Pagamento de giro: ${desc}`, { id, valor, descricao, usuario: App.usuarioAtual });
+                showToast('Pagamento registrado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao registrar pagamento:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        function abrirRecebimentoGiro(id, desc) {
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor a receber</label>
+                    <input type="text" id="operacaoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-align-left"></i> Descrição (opcional)</label>
+                    <input type="text" id="operacaoDescricao" class="form-input" placeholder="Ex: Recebimento parcial">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-warning" onclick="confirmarRecebimentoGiro('${id}', '${desc}')" style="flex:2"><i class="fas fa-check"></i> Confirmar</button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
+                </div>
+            `;
+            abrirModal(`Receber Giro: ${desc}`, 'fa-arrow-up', conteudo);
+        }
+
+        async function confirmarRecebimentoGiro(id, desc) {
+            let valor = parseCurrency(document.getElementById('operacaoValor')?.value);
+            let descricao = document.getElementById('operacaoDescricao')?.value.trim() || 'Recebimento';
+
+            if (!valor || valor <= 0) {
+                showToast('Informe um valor válido', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('movimentacoes_giro').insert({
+                    user_id: App.currentUser.id,
+                    giro_id: id,
+                    tipo: 'recebimento',
+                    valor: valor,
+                    descricao: descricao,
+                    data: new Date().toISOString(),
+                    added_by: App.usuarioAtual || 'desconhecido'
+                });
+
+                await registrarHistorico('recebimento_giro', `Recebimento de giro: ${desc}`, { id, valor, descricao, usuario: App.usuarioAtual });
+                showToast('Recebimento registrado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao registrar recebimento:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
     </script>
 </body>
 </html>

@@ -238,21 +238,21 @@
             cursor: pointer
         }
 
-        .forgot-password {
+        .forgot-password-link {
             display: flex;
             justify-content: flex-end;
             margin-top: 8px;
             margin-bottom: 16px;
         }
-
-        .forgot-password a {
+        
+        .forgot-password-link a {
             color: var(--purple);
             font-size: 13px;
             text-decoration: none;
-            font-weight: 500;
+            cursor: pointer;
         }
-
-        .forgot-password a:hover {
+        
+        .forgot-password-link a:hover {
             text-decoration: underline;
         }
 
@@ -395,7 +395,8 @@
             padding: 10px;
             margin: 6px;
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, .08)
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+            cursor: pointer;
         }
 
         .calendar-header {
@@ -637,7 +638,8 @@
             padding: 8px 12px;
             background: #fff;
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, .08)
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+            cursor: pointer;
         }
 
         .items-list {
@@ -693,24 +695,6 @@
         .item-card.giro {
             border-left-color: var(--success);
             background-color: var(--bg-pendente)
-        }
-
-        .item-card.lista-pendente {
-            border-left-color: var(--success);
-            background-color: var(--bg-pendente);
-            cursor: pointer;
-        }
-
-        .item-card.lista-comprado {
-            border-left-color: var(--gray);
-            background-color: var(--bg-pago);
-            color: var(--text-pago);
-            opacity: .7;
-            cursor: pointer;
-        }
-
-        .item-card.lista-comprado .item-title {
-            text-decoration: line-through
         }
 
         .item-info {
@@ -795,16 +779,12 @@
             background: var(--purple-dark)
         }
 
-        .action-btn.balanco {
-            background: var(--purple);
+        .action-btn.activate {
+            background: var(--success)
         }
 
-        .action-btn.check {
-            background: var(--success);
-        }
-
-        .action-btn.uncheck {
-            background: var(--warning);
+        .action-btn.deactivate {
+            background: var(--gray)
         }
 
         .item-badge {
@@ -1189,7 +1169,7 @@
             gap: 10px
         }
 
-        .side-menu-items {
+        .side-menu-content {
             flex: 1;
             overflow-y: auto;
         }
@@ -1228,6 +1208,7 @@
             text-decoration: none;
             display: block;
             margin: 4px 0;
+            font-size: 12px;
         }
 
         .side-menu-footer a:hover {
@@ -1675,19 +1656,9 @@
             background: var(--success);
         }
 
-        .balanco-info {
-            background: var(--bg-warning-light);
-            padding: 16px;
-            border-radius: 8px;
-            margin: 16px 0;
-            font-size: 14px;
-            color: var(--text-warning);
-            border-left: 4px solid var(--warning);
-        }
-
-        .balanco-info i {
-            font-size: 20px;
-            margin-right: 8px;
+        .extract-btn {
+            background: var(--purple);
+            color: #fff;
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1706,7 +1677,7 @@
                     <label class="form-label"><i class="fas fa-lock"></i> Senha</label>
                     <input type="password" id="loginPassword" class="form-input" placeholder="Sua senha">
                 </div>
-                <div class="forgot-password">
+                <div class="forgot-password-link">
                     <a href="#" onclick="handleForgotPassword()">Esqueci minha senha?</a>
                 </div>
                 <button class="btn btn-primary" id="btnLogin" style="width:100%">
@@ -1743,7 +1714,7 @@
         <div class="side-menu-overlay" id="sideMenuOverlay"></div>
         <div class="side-menu" id="sideMenu">
             <div class="side-menu-header"><i class="fas fa-home"></i> My Life</div>
-            <div class="side-menu-items">
+            <div class="side-menu-content">
                 <div class="side-menu-item" onclick="abrirMenuRelatorio();fecharSideMenu()"><i class="fas fa-chart-line"></i> Relatório</div>
                 <div class="side-menu-item" onclick="abrirNotificacoes();fecharSideMenu()"><i class="fas fa-bell"></i> Notificações</div>
                 <div class="side-menu-item" onclick="abrirMenuSeguranca();fecharSideMenu()"><i class="fas fa-lock"></i> Segurança</div>
@@ -1781,15 +1752,15 @@
             </div>
         </div>
 
-        <div class="calendar-section">
+        <div class="calendar-section" onclick="voltarParaCalendario()">
             <div class="calendar-header">
-                <div class="calendar-title" id="calendarTitle" onclick="voltarParaCalendario()">Carregando...</div>
+                <div class="calendar-title" id="calendarTitle">Carregando...</div>
                 <div class="calendar-nav">
-                    <button id="btnPrevMonth"><i class="fas fa-chevron-left"></i></button>
-                    <button id="btnNextMonth"><i class="fas fa-chevron-right"></i></button>
+                    <button id="btnPrevMonth" onclick="event.stopPropagation()"><i class="fas fa-chevron-left"></i></button>
+                    <button id="btnNextMonth" onclick="event.stopPropagation()"><i class="fas fa-chevron-right"></i></button>
                 </div>
             </div>
-            <div class="calendar-grid" id="calendarGrid"></div>
+            <div class="calendar-grid" id="calendarGrid" onclick="event.stopPropagation()"></div>
         </div>
 
         <div class="filters">
@@ -1808,7 +1779,7 @@
         </div>
 
         <div class="content-area">
-            <div class="filter-info" id="filterInfo"></div>
+            <div class="filter-info" id="filterInfo" onclick="voltarParaCalendario()"></div>
             <div class="loading-spinner" id="loadingState" style="display:none">
                 <i class="fas fa-spinner fa-spin"></i>
                 <div>Carregando...</div>
@@ -1843,54 +1814,12 @@
     <div id="toast" class="toast" style="display:none"></div>
 
     <script>
-       // ===== INÍCIO DO SCRIPT - COLOQUE ISSO PRIMEIRO =====
-const SUPABASE_URL = 'https://rirvrrlgjetsgwhqqfvq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-// ===== FIM DA PARTE QUE DEVE IR NO INÍCIO =====
-
-        // FUNÇÃO PARA RECUPERAR SENHA
-       // FUNÇÃO PARA RECUPERAR SENHA - COLOQUE ISSO EM QUALQUER LUGAR DENTRO DO SCRIPT
-async function handleForgotPassword() {
-    // Pede o e-mail ao usuário
-    const email = prompt("Digite seu e-mail para recuperar a senha:");
-    if (!email) return;
-
-    // Validação básica de e-mail
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        alert('Por favor, digite um e-mail válido.');
-        return;
-    }
-
-    try {
-        // USA App.supabase (que agora está configurado corretamente)
-        const { error } = await App.supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'https://mylife.app.br/redefinir-senha.html'
-        });
-
-        if (error) throw error;
-        
-        alert('✅ E-mail de recuperação enviado! Verifique sua caixa de entrada (e a pasta de spam).');
-        
-    } catch (error) {
-        alert('Erro ao enviar: ' + error.message);
-    }
-}
-
         const CONFIG = {
             supabase: {
-              // INICIALIZAÇÃO DO SUPABASE - COLOQUE ISSO ANTES DO CONFIG
-const SUPABASE_URL = 'https://rirvrrlgjetsgwhqqfvq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const CONFIG = {
-    supabase: {
-        url: SUPABASE_URL,
-        anonKey: SUPABASE_ANON_KEY
-    },
-    mercadopago: {
+                url: 'https://rirvrrlgjetsgwhqqfvq.supabase.co',
+                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds'
+            },
+            mercadopago: {
                 links: {
                     mensal: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=9a30d25477b445028fd6374c1b5d51f9',
                     anual: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=59d5d72cfcee476b99776abcbddc4adf'
@@ -1926,8 +1855,7 @@ const CONFIG = {
                 { nome: 'Floco', icon: 'fa-snowflake', cor: '#3498db' },
                 { nome: 'Remédio', icon: 'fa-capsules', cor: '#e74c3c' },
                 { nome: 'Pasta', icon: 'fa-folder', cor: '#f39c12' },
-                { nome: 'Praia', icon: 'fa-umbrella-beach', cor: '#f39c12' },
-                { nome: 'Coração Roxo', icon: 'fa-heart', cor: '#9b59b6' },
+                { nome: 'Praia', icon: 'fa-umbrella-beach', cor: '#f1c40f' },
                 { nome: 'Igreja', icon: 'fa-church', cor: '#8e44ad' },
                 { nome: 'Céu', icon: 'fa-cloud-sun', cor: '#3498db' },
                 { nome: 'Montanha', icon: 'fa-mountain', cor: '#27ae60' },
@@ -1953,9 +1881,8 @@ const CONFIG = {
         };
 
         const App = {
-            const App = {
-    supabase: supabase,  // AGORA USA A VARIÁVEL GLOBAL
-    currentUser: null,
+            supabase: null,
+            currentUser: null,
             currentMonthOffset: 0,
             activeFilters: { contas: true, eventos: true },
             selectedDay: null,
@@ -1994,6 +1921,37 @@ const CONFIG = {
             cacheLoaded: false,
             exibirSaldoHeader: true
         };
+
+        // Função para recuperar senha
+        async function handleForgotPassword() {
+            const email = prompt("Digite seu e-mail para recuperar a senha:");
+            if (!email) return;
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Por favor, digite um e-mail válido.');
+                return;
+            }
+
+            try {
+                const { error } = await App.supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: 'https://mylife.app.br/redefinir-senha.html'
+                });
+
+                if (error) throw error;
+                
+                alert('✅ E-mail de recuperação enviado! Verifique sua caixa de entrada (e a pasta de spam).');
+                
+            } catch (error) {
+                alert('Erro ao enviar: ' + error.message);
+            }
+        }
+
+        // Função para voltar ao calendário (ajuste 7)
+        function voltarParaCalendario() {
+            App.currentFilter = 'all';
+            mostrarConteudo();
+        }
 
         // Funções auxiliares
         function showToast(mensagem, tipo) {
@@ -2231,20 +2189,6 @@ const CONFIG = {
                 case 'lista': abrirNovoItemLista(); break;
                 case 'giro': abrirNovoGiro(); break;
             }
-        }
-
-        function voltarParaCalendario() {
-            App.currentFilter = 'all';
-            App.activeFilters = { contas: true, eventos: true };
-            
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                let filter = btn.dataset.filter;
-                if (filter === 'contas' || filter === 'eventos') {
-                    btn.classList.toggle('active', App.activeFilters[filter]);
-                }
-            });
-            
-            mostrarConteudo();
         }
 
         function abrirModalAssinaturaBloqueio() {
@@ -2902,6 +2846,10 @@ const CONFIG = {
                     if (configs) configuracoes = configs;
                 } catch (e) { }
 
+                if (configuracoes) configuracoes.forEach(c => {
+                    if (c.chave === 'saldo_senha') App.saldoSenha = c.valor;
+                });
+
                 if (historicoAcoes) {
                     App.historicoAcoes = historicoAcoes.map(h => ({ ...h, detalhes: JSON.parse(h.detalhes || '{}') }));
                 }
@@ -3016,15 +2964,6 @@ const CONFIG = {
         function selecionarDia(dia) {
             App.selectedDay = App.selectedDay === dia ? null : dia;
             App.currentFilter = 'all';
-            App.activeFilters = { contas: true, eventos: true };
-            
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                let filter = btn.dataset.filter;
-                if (filter === 'contas' || filter === 'eventos') {
-                    btn.classList.toggle('active', App.activeFilters[filter]);
-                }
-            });
-            
             atualizarCalendario();
             mostrarConteudo();
         }
@@ -3215,14 +3154,14 @@ const CONFIG = {
             if (pendentes.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-clock"></i> Pendentes</div>';
                 pendentes.forEach(i => {
-                    html += `<div class="item-card lista-pendente" onclick="alternarComprado('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    html += `<div class="item-card pendente" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
                             <div class="item-title"><span class="item-badge">${i.quantidade}x</span>${i.descricao || 'Item sem descrição'} <span class="usuario-badge">${i.added_by || 'desconhecido'}</span></div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn check" onclick="event.stopPropagation();alternarComprado('${i.id}')"><i class="fas fa-check"></i></button>
-                                <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn ${i.comprado ? 'undo' : 'pay'}" onclick="event.stopPropagation();verificarEAcaoEdicao(() => alternarComprado('${i.id}'))"><i class="fas ${i.comprado ? 'fa-undo' : 'fa-check'}"></i></button>
+                                <button class="action-btn delete" onclick="event.stopPropagation();verificarEAcaoEdicao(() => deletarItemLista('${i.id}'))"><i class="fas fa-trash"></i></button>
                             ` : ''}
                         </div>
                     </div>`;
@@ -3232,14 +3171,14 @@ const CONFIG = {
             if (comprados.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-check-double"></i> Comprados</div>';
                 comprados.forEach(i => {
-                    html += `<div class="item-card lista-comprado" onclick="alternarComprado('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    html += `<div class="item-card paga" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
                             <div class="item-title"><span class="item-badge">${i.quantidade}x</span>${i.descricao || 'Item sem descrição'} <span class="usuario-badge">${i.added_by || 'desconhecido'}</span></div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn undo" onclick="event.stopPropagation();alternarComprado('${i.id}')"><i class="fas fa-undo-alt"></i></button>
-                                <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn undo" onclick="event.stopPropagation();verificarEAcaoEdicao(() => alternarComprado('${i.id}'))"><i class="fas fa-undo"></i></button>
+                                <button class="action-btn delete" onclick="event.stopPropagation();verificarEAcaoEdicao(() => deletarItemLista('${i.id}'))"><i class="fas fa-trash"></i></button>
                             ` : ''}
                         </div>
                     </div>`;
@@ -3288,8 +3227,9 @@ const CONFIG = {
                         <div class="item-value">${formatCurrency(s.valor)}</div>
                         ${podeEditar ? `
                         <div class="item-actions">
-                            <button class="action-btn balanco" onclick="event.stopPropagation();abrirBalancoSaldo('${s.id}')"><i class="fas fa-balance-scale"></i></button>
+                            <button class="action-btn update" onclick="event.stopPropagation();abrirAtualizarValorSaldo('${s.id}')"><i class="fas fa-sync-alt"></i></button>
                             <button class="action-btn edit" onclick="event.stopPropagation();editarSaldo('${s.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn extract" onclick="event.stopPropagation();abrirExtratoSaldo('${s.id}')"><i class="fas fa-history"></i></button>
                             <button class="action-btn delete" onclick="event.stopPropagation();deletarSaldo('${s.id}')"><i class="fas fa-trash"></i></button>
                         </div>
                         ` : ''}
@@ -3909,19 +3849,6 @@ const CONFIG = {
             fecharSeletorIcones();
         }
 
-        function selecionarIconeEventoEdit(icone, cor) {
-            document.getElementById('eventoIconeEdit').value = icone;
-            document.getElementById('eventoCorIconeEdit').value = cor;
-            
-            // Atualizar preview no modal
-            let previewContainer = document.querySelector('#eventoIconeEdit').closest('.form-group').querySelector('div[style*="text-align:center"]');
-            if (previewContainer) {
-                previewContainer.innerHTML = `<i class="fas ${icone}" style="font-size:32px; color:${cor}"></i>`;
-            }
-            
-            fecharSeletorIconesEdit();
-        }
-
         async function salvarNovoEvento() {
             let titulo = document.getElementById('eventoTitulo')?.value.trim();
             let desc = document.getElementById('eventoDescricao')?.value.trim();
@@ -4104,7 +4031,7 @@ const CONFIG = {
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-icons"></i> Ícone Atual</label>
                     <div style="text-align:center; padding:10px; background:#f8f9fa; border-radius:8px">
-                        <i class="fas ${evento.icone || 'fa-star'}" style="font-size:32px; color:${evento.cor_icone || '#ffd700'}"></i>
+                        <i class="fas ${evento.icone || 'fa-star'}" id="iconeEditPreview" style="font-size:32px; color:${evento.cor_icone || '#ffd700'}"></i>
                     </div>
                     <button class="btn btn-primary" style="width:100%; margin-top:8px" onclick="abrirSeletorIconesEdit()"><i class="fas fa-icons"></i> Trocar Ícone</button>
                     <input type="hidden" id="eventoIconeEdit" value="${evento.icone || 'fa-star'}">
@@ -4141,6 +4068,15 @@ const CONFIG = {
 
         function fecharSeletorIconesEdit() {
             document.getElementById('seletorIconesEditModal').style.display = 'none';
+        }
+
+        function selecionarIconeEventoEdit(icone, cor) {
+            document.getElementById('eventoIconeEdit').value = icone;
+            document.getElementById('eventoCorIconeEdit').value = cor;
+            let preview = document.getElementById('iconeEditPreview');
+            preview.className = `fas ${icone}`;
+            preview.style.color = cor;
+            fecharSeletorIconesEdit();
         }
 
         async function salvarEdicaoEvento(id, isRecorrente, regraId, isIndividual, individualId, dia, mes, ano) {
@@ -4515,12 +4451,8 @@ const CONFIG = {
                 let conteudo = `
                     <div style="padding:16px">
                         <h3 style="margin-bottom:16px">Excluir Conta</h3>
-                        <p style="background:var(--bg-warning-light); padding:12px; border-radius:8px; margin-bottom:16px">
-                            <i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i>
-                            Ao excluir uma conta, o saldo NÃO será afetado. Este valor não retornará ao saldo. 
-                            Para retornar o valor ao saldo, desfaça o pagamento antes de excluir a conta.
-                        </p>
-                        <p>Deseja deletar assim mesmo?</p>
+                        <p>Ao excluir uma conta o seu saldo não será afetado. Esse valor não retornará ao saldo. Para retornar o valor ao saldo, desfaça o pagamento antes de excluir a conta.</p>
+                        <p style="margin:12px 0; font-weight:bold">Deseja deletar assim mesmo?</p>
                         <div class="exclusao-opcoes">
                             <div class="exclusao-opcao" onclick="selecionarExclusaoConta('unica', '${id}', '${tipo}', ${isRecorrente}, '${regraId}', ${dia}, ${mes}, ${ano})" id="exclusaoUnica">
                                 <strong>Apenas esta ocorrência</strong>
@@ -4542,12 +4474,7 @@ const CONFIG = {
                 `;
                 abrirModal('Excluir Conta', 'fa-trash', conteudo);
             } else {
-                let mensagemAdicional = '';
-                if (tipo === 'conta') {
-                    mensagemAdicional = '\n\nAo excluir uma conta, o saldo NÃO será afetado. Este valor não retornará ao saldo. Para retornar o valor ao saldo, desfaça o pagamento antes de excluir a conta.';
-                }
-                
-                if (confirm(`Tem certeza que deseja excluir este ${tipo}?${mensagemAdicional}`)) {
+                if (confirm(`Tem certeza que deseja excluir este ${tipo}?`)) {
                     (async () => {
                         try {
                             if (tipo === 'gasto') {
@@ -4994,7 +4921,7 @@ const CONFIG = {
                     
                     <div style="margin-bottom:20px">
                         <h4 style="color:var(--purple-dark);margin-bottom:8px"><i class="fas fa-wallet"></i> Saldo e Gastos</h4>
-                        <p><strong>Saldo:</strong> Acesse a área de Saldos clicando no valor no menu superior. Você pode adicionar, retirar ou fazer balanço do saldo diretamente.</p>
+                        <p><strong>Saldo:</strong> Acesse a área de Saldos clicando no valor no menu superior. Você pode adicionar, retirar ou atualizar o saldo diretamente.</p>
                         <p><strong>Gastos:</strong> No botão "Gastos" na barra inferior, registre seus gastos diários com categorias. Eles são automaticamente debitados do saldo central.</p>
                     </div>
                     
@@ -5005,7 +4932,7 @@ const CONFIG = {
                     
                     <div style="margin-bottom:20px">
                         <h4 style="color:var(--purple-dark);margin-bottom:8px"><i class="fas fa-shopping-cart"></i> Lista de Compras</h4>
-                        <p>Lista simples para controle de compras. Clique no item para marcar como comprado ou desmarcar.</p>
+                        <p>Lista simples para controle de compras. Marque os itens como comprados quando pegar no mercado.</p>
                     </div>
                     
                     <div style="margin-bottom:20px">
@@ -5630,26 +5557,16 @@ const CONFIG = {
 
             let conteudo = `
                 <div style="padding:16px">
-                    <h3 style="margin-bottom:16px">Balanço do Saldo</h3>
+                    <p>O valor que você inserir irá substituir o valor de saldo atual.</p>
+                    <p>Ao clicar em salvar, o saldo atual ficará sendo o que você digitou.</p>
                     
-                    <div class="balanco-info">
-                        <i class="fas fa-info-circle"></i>
-                        O valor que você inserir irá substituir o valor de saldo atual. 
-                        Ao clicar em salvar, o saldo atual ficará sendo o que você digitou.
+                    <div class="form-group" style="margin:20px 0">
+                        <label class="form-label"><i class="fas fa-dollar-sign"></i> Novo Valor</label>
+                        <input type="text" id="saldoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label"><i class="fas fa-dollar-sign"></i> Saldo Atual</label>
-                        <input type="text" class="form-input" value="${formatCurrency(saldo.valor)}" disabled>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label"><i class="fas fa-dollar-sign"></i> Novo Valor do Saldo</label>
-                        <input type="text" id="saldoValorBalanco" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
-                    </div>
-                    
-                    <div class="btn-group" style="margin-top:20px">
-                        <button class="btn btn-primary" onclick="confirmarBalancoSaldo('${id}')" style="flex:2"><i class="fas fa-save"></i> Salvar Novo Valor</button>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="confirmarBalancoSaldo('${id}')" style="flex:2"><i class="fas fa-save"></i> Salvar Balanço</button>
                         <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
                     </div>
                 </div>
@@ -5658,28 +5575,68 @@ const CONFIG = {
         }
 
         async function confirmarBalancoSaldo(id) {
-            let novoValor = parseCurrency(document.getElementById('saldoValorBalanco')?.value);
-            
-            if (novoValor === undefined || isNaN(novoValor)) {
+            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
+            if (valor === undefined) {
                 showToast('Digite um valor válido', 'warning');
                 return;
             }
 
             try {
-                await App.supabase.from('saldos').update({ valor: novoValor }).eq('id', id);
-                
+                await App.supabase.from('saldos').update({ valor: valor }).eq('id', id);
                 if (id === App.saldoCentral.id) {
-                    App.saldoCentral.valor = novoValor;
+                    App.saldoCentral.valor = valor;
                     atualizarSaldoHeader();
                 }
 
-                await registrarHistorico('atualizacao_saldo', `Saldo atualizado via balanço para ${formatCurrency(novoValor)}`, { id, valor: novoValor, usuario: App.usuarioAtual });
-                showToast('Saldo atualizado via balanço!', 'success');
+                await registrarHistorico('atualizacao_saldo', `Balanço atualizado para ${formatCurrency(valor)}`, { id, valor, usuario: App.usuarioAtual });
+                showToast('Balanço atualizado!', 'success');
                 fecharModal();
                 await carregarDados(true);
                 await mostrarConteudo();
             } catch (error) {
-                console.error('Erro ao fazer balanço do saldo:', error);
+                console.error('Erro ao atualizar balanço:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        function abrirAtualizarValorSaldo(id) {
+            let saldo = App.dataCache.saldos.find(s => s.id === id);
+            if (!saldo) return;
+
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Novo Valor</label>
+                    <input type="text" id="saldoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="confirmarAtualizarSaldo('${id}')" style="flex:2"><i class="fas fa-save"></i> Atualizar</button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
+                </div>
+            `;
+            abrirModal('Atualizar Saldo', 'fa-sync-alt', conteudo);
+        }
+
+        async function confirmarAtualizarSaldo(id) {
+            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
+            if (valor === undefined) {
+                showToast('Digite um valor válido', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('saldos').update({ valor: valor }).eq('id', id);
+                if (id === App.saldoCentral.id) {
+                    App.saldoCentral.valor = valor;
+                    atualizarSaldoHeader();
+                }
+
+                await registrarHistorico('atualizacao_saldo', `Saldo atualizado para ${formatCurrency(valor)}`, { id, valor, usuario: App.usuarioAtual });
+                showToast('Saldo atualizado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao atualizar saldo:', error);
                 showToast('Erro: ' + error.message, 'error');
             }
         }
@@ -5807,7 +5764,6 @@ const CONFIG = {
 
             let movimentacoes = [];
 
-            // Pagamentos de contas
             App.dataCache.contas.forEach(c => {
                 if (c.data_pagamento) {
                     let dataPag = new Date(c.data_pagamento);
@@ -5823,7 +5779,6 @@ const CONFIG = {
                 }
             });
 
-            // Gastos
             App.dataCache.gastos.forEach(g => {
                 let dataGasto = new Date(g.ano, g.mes - 1, g.dia, 12, 0, 0);
                 if (dataGasto >= sessentaDiasAtras) {
@@ -5837,7 +5792,6 @@ const CONFIG = {
                 }
             });
 
-            // Adições/retiradas do saldo (do histórico)
             App.dataCache.historico.forEach(h => {
                 let dataHist = new Date(h.data);
                 if (dataHist >= sessentaDiasAtras && h.tipo && h.tipo.includes('saldo')) {
@@ -5952,7 +5906,7 @@ const CONFIG = {
 
         async function init() {
             try {
-               
+                App.supabase = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey);
                 let { data: { session } } = await App.supabase.auth.getSession();
 
                 await inicializarNotificacoes();
@@ -6011,15 +5965,7 @@ const CONFIG = {
                 document.getElementById('btnLogin').addEventListener('click', async () => {
                     let email = document.getElementById('loginEmail').value.trim();
                     let pass = document.getElementById('loginPassword').value;
-document.getElementById('btnLogin').addEventListener('click', async () => {
-    // ADICIONE ESTA VERIFICAÇÃO
-    if (!App.supabase) {
-        showToast('Erro de conexão com o banco de dados', 'error');
-        return;
-    }
-    
-    let email = document.getElementById('loginEmail').value.trim();
-    let pass = document.getElementById('loginPassword').value;
+
                     if (!email || !pass) {
                         showToast('Preencha email e senha', 'warning');
                         return;

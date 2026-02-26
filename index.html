@@ -1919,7 +1919,9 @@
             usuarioAtual: null,
             processandoLinkPagamento: false,
             cacheLoaded: false,
-            exibirSaldoHeader: true
+            exibirSaldoHeader: true,
+            saldoAutenticado: true,
+            saldoSenha: '1234'
         };
 
         // Função para recuperar senha
@@ -2147,8 +2149,17 @@
             if (!menuItem) return;
             
             if (App.assinaturaAtiva && App.dataExpiracao) {
-                let dias = Math.ceil((App.dataExpiracao - new Date()) / (1000 * 60 * 60 * 24));
-                menuItem.innerHTML = `Premium <span class="assinatura-badge">${dias} dias</span>`;
+                // CORREÇÃO: Cálculo correto de dias restantes
+                let hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                
+                let expiracao = new Date(App.dataExpiracao);
+                expiracao.setHours(0, 0, 0, 0);
+                
+                let diffTempo = expiracao.getTime() - hoje.getTime();
+                let diffDias = Math.ceil(diffTempo / (1000 * 60 * 60 * 24));
+                
+                menuItem.innerHTML = `Premium <span class="assinatura-badge">${diffDias} dias</span>`;
             } else {
                 menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
             }
@@ -2260,8 +2271,16 @@
             }
             
             let dataExpiracao = App.dataExpiracao ? App.dataExpiracao.toLocaleDateString('pt-BR') : 'Desconhecida';
-            let diasRestantes = App.dataExpiracao ? 
-                Math.ceil((App.dataExpiracao - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+            
+            // CORREÇÃO: Cálculo correto de dias restantes
+            let hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            
+            let expiracao = App.dataExpiracao ? new Date(App.dataExpiracao) : null;
+            expiracao?.setHours(0, 0, 0, 0);
+            
+            let diffTempo = expiracao ? expiracao.getTime() - hoje.getTime() : 0;
+            let diasRestantes = expiracao ? Math.ceil(diffTempo / (1000 * 60 * 60 * 24)) : 0;
             
             let conteudo = `
                 <div style="padding:16px; text-align:center">
@@ -3138,6 +3157,7 @@
             content.innerHTML = html;
         }
 
+        // FUNÇÃO RENDERIZAR LISTA CORRIGIDA
         async function renderizarLista(content) {
             let lista = App.dataCache.lista || [];
             let podeEditar = App.assinaturaAtiva;
@@ -3154,14 +3174,19 @@
             if (pendentes.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-clock"></i> Pendentes</div>';
                 pendentes.forEach(i => {
-                    html += `<div class="item-card pendente" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    html += `<div class="item-card pendente" onclick="editarItemLista('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
-                            <div class="item-title"><span class="item-badge">${i.quantidade}x</span>${i.descricao || 'Item sem descrição'} <span class="usuario-badge">${i.added_by || 'desconhecido'}</span></div>
+                            <div class="item-title"><span class="item-badge">${i.quantidade}x</span> ${i.descricao || 'Item sem descrição'}</div>
+                            <div class="item-details">Adicionado por: ${i.added_by || 'Sistema'}</div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn ${i.comprado ? 'undo' : 'pay'}" onclick="event.stopPropagation();verificarEAcaoEdicao(() => alternarComprado('${i.id}'))"><i class="fas ${i.comprado ? 'fa-undo' : 'fa-check'}"></i></button>
-                                <button class="action-btn delete" onclick="event.stopPropagation();verificarEAcaoEdicao(() => deletarItemLista('${i.id}'))"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             ` : ''}
                         </div>
                     </div>`;
@@ -3171,14 +3196,18 @@
             if (comprados.length > 0) {
                 html += '<div class="section-divider"><i class="fas fa-check-double"></i> Comprados</div>';
                 comprados.forEach(i => {
-                    html += `<div class="item-card paga" ${podeEditar ? '' : 'style="cursor:default"'}>
+                    html += `<div class="item-card paga" onclick="editarItemLista('${i.id}')" ${podeEditar ? '' : 'style="cursor:default"'}>
                         <div class="item-info">
-                            <div class="item-title"><span class="item-badge">${i.quantidade}x</span>${i.descricao || 'Item sem descrição'} <span class="usuario-badge">${i.added_by || 'desconhecido'}</span></div>
+                            <div class="item-title"><span class="item-badge">${i.quantidade}x</span> ${i.descricao || 'Item sem descrição'}</div>
                         </div>
                         <div class="item-actions">
                             ${podeEditar ? `
-                                <button class="action-btn undo" onclick="event.stopPropagation();verificarEAcaoEdicao(() => alternarComprado('${i.id}'))"><i class="fas fa-undo"></i></button>
-                                <button class="action-btn delete" onclick="event.stopPropagation();verificarEAcaoEdicao(() => deletarItemLista('${i.id}'))"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn edit" onclick="event.stopPropagation();alternarComprado('${i.id}')">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="action-btn delete" onclick="event.stopPropagation();deletarItemLista('${i.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             ` : ''}
                         </div>
                     </div>`;
@@ -3189,6 +3218,142 @@
             content.innerHTML = html;
         }
 
+        // FUNÇÕES DA LISTA CORRIGIDAS
+        function abrirNovoItemLista() {
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-hashtag"></i> Quantidade</label>
+                    <input type="number" id="itemQuantidade" class="form-input" min="1" value="1" inputmode="numeric">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-box"></i> Item</label>
+                    <input type="text" id="itemDescricao" class="form-input" placeholder="Ex: Leite">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="salvarNovoItemLista()" style="flex:2">
+                        <i class="fas fa-save"></i> Adicionar
+                    </button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+            abrirModal('Novo Item na Lista', 'fa-cart-plus', conteudo);
+        }
+
+        async function salvarNovoItemLista() {
+            let qtd = parseInt(document.getElementById('itemQuantidade')?.value);
+            let desc = document.getElementById('itemDescricao')?.value.trim();
+            
+            if (!qtd || !desc) {
+                showToast('Preencha quantidade e descrição', 'warning');
+                return;
+            }
+            
+            try {
+                await App.supabase.from('lista_compras').insert({
+                    user_id: App.currentUser.id,
+                    quantidade: qtd,
+                    descricao: desc,
+                    comprado: false,
+                    added_by: App.usuarioAtual || 'desconhecido'
+                });
+                
+                await registrarHistorico('criacao_lista', `Item adicionado: ${desc}`, { qtd, desc, usuario: App.usuarioAtual });
+                showToast('Item adicionado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        async function alternarComprado(id) {
+            let item = App.dataCache.lista.find(i => i.id === id);
+            if (!item) return;
+            
+            let novo = !item.comprado;
+            
+            try {
+                await App.supabase.from('lista_compras').update({
+                    comprado: novo
+                }).eq('id', id);
+                
+                await registrarHistorico('alternar_lista', `Item ${novo ? 'marcado' : 'desmarcado'}: ${item.descricao}`, { id, usuario: App.usuarioAtual });
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                showToast('Erro ao atualizar', 'error');
+            }
+        }
+
+        async function editarItemLista(id) {
+            let item = App.dataCache.lista.find(i => i.id === id);
+            if (!item) return;
+            
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-hashtag"></i> Quantidade</label>
+                    <input type="number" id="editItemQuantidade" class="form-input" min="1" value="${item.quantidade || 1}" inputmode="numeric">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-box"></i> Item</label>
+                    <input type="text" id="editItemDescricao" class="form-input" value="${item.descricao || ''}">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="salvarEdicaoItemLista('${item.id}')" style="flex:2">
+                        <i class="fas fa-save"></i> Salvar
+                    </button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+            abrirModal('Editar Item da Lista', 'fa-edit', conteudo);
+        }
+
+        async function salvarEdicaoItemLista(id) {
+            let qtd = parseInt(document.getElementById('editItemQuantidade')?.value);
+            let desc = document.getElementById('editItemDescricao')?.value.trim();
+            
+            if (!qtd || !desc) {
+                showToast('Preencha todos os campos', 'warning');
+                return;
+            }
+            
+            try {
+                await App.supabase.from('lista_compras').update({
+                    quantidade: qtd,
+                    descricao: desc
+                }).eq('id', id);
+                
+                await registrarHistorico('edicao_lista', `Item editado: ${desc}`, { id, usuario: App.usuarioAtual });
+                showToast('Item atualizado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        async function deletarItemLista(id) {
+            if (!confirm('Tem certeza?')) return;
+            
+            try {
+                await App.supabase.from('lista_compras').delete().eq('id', id);
+                await registrarHistorico('exclusao_lista', `Item removido da lista`, { id, usuario: App.usuarioAtual });
+                showToast('Item removido!', 'success');
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
+        // FUNÇÃO RENDERIZAR SALDOS CORRIGIDA (BOTÃO ATUALIZAR)
         async function renderizarSaldos(content) {
             let saldos = App.dataCache.saldos || [];
             let podeEditar = App.assinaturaAtiva;
@@ -3200,7 +3365,7 @@
                 dataAtualizacao.setDate(dataAtualizacao.getDate() + 1);
                 
                 html += `<div style="padding:16px;background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;border-radius:8px;margin-bottom:12px">
-                    <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;justify-content:space-between;align-items-center">
                         <div style="font-size:.9em;opacity:.9">Saldo Central</div>
                     </div>
                     <div style="font-size:1.8em;font-weight:700">${formatCurrency(central.valor)}</div>
@@ -3210,7 +3375,7 @@
                     <div class="btn-group" style="margin-top:12px">
                         <button class="btn btn-sm btn-success" onclick="abrirAdicionarValorSaldo('${central.id}')"><i class="fas fa-plus"></i> Adicionar</button>
                         <button class="btn btn-sm btn-warning" onclick="abrirRetirarValorSaldo('${central.id}')"><i class="fas fa-minus"></i> Retirar</button>
-                        <button class="btn btn-sm btn-primary" onclick="abrirBalancoSaldo('${central.id}')"><i class="fas fa-balance-scale"></i> Balanço</button>
+                        <button class="btn btn-sm btn-primary" onclick="abrirAtualizarValorSaldo('${central.id}')"><i class="fas fa-sync-alt"></i> Atualizar</button>
                     </div>
                     ` : ''}
                 </div>`;
@@ -3244,12 +3409,60 @@
             content.innerHTML = html;
         }
 
+        // FUNÇÃO ABRIR ATUALIZAR VALOR SALDO
+        function abrirAtualizarValorSaldo(id) {
+            let saldo = App.dataCache.saldos.find(s => s.id === id);
+            if (!saldo) return;
+            
+            let conteudo = `
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-sync-alt"></i> Novo valor total</label>
+                    <input type="text" id="operacaoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                </div>
+                <div class="btn-group" style="margin-top:20px">
+                    <button class="btn btn-primary" onclick="confirmarAtualizarSaldo('${id}')" style="flex:2">
+                        <i class="fas fa-check"></i> Atualizar
+                    </button>
+                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+            abrirModal('Atualizar Saldo', 'fa-sync-alt', conteudo);
+        }
+
+        async function confirmarAtualizarSaldo(id) {
+            let valor = parseCurrency(document.getElementById('operacaoValor')?.value);
+            if (valor === undefined) {
+                showToast('Digite um valor válido', 'warning');
+                return;
+            }
+
+            try {
+                await App.supabase.from('saldos').update({ valor: valor }).eq('id', id);
+                if (id === App.saldoCentral.id) {
+                    App.saldoCentral.valor = valor;
+                    atualizarSaldoHeader();
+                }
+
+                await registrarHistorico('atualizacao_saldo', `Saldo atualizado para ${formatCurrency(valor)}`, { id, valor, usuario: App.usuarioAtual });
+                showToast('Saldo atualizado!', 'success');
+                fecharModal();
+                await carregarDados(true);
+                await mostrarConteudo();
+            } catch (error) {
+                console.error('Erro ao atualizar saldo:', error);
+                showToast('Erro: ' + error.message, 'error');
+            }
+        }
+
         function toggleExibirSaldoHeader() {
             App.exibirSaldoHeader = !App.exibirSaldoHeader;
             atualizarSaldoHeader();
             mostrarConteudo();
         }
 
+        // FUNÇÃO RENDERIZAR GIROS CORRIGIDA (COM EDIÇÃO FUNCIONAL)
         async function renderizarGiros(content) {
             let giros = App.dataCache.giros || [];
             let podeEditar = App.assinaturaAtiva;
@@ -5165,388 +5378,72 @@
             }
         }
 
-        function abrirNovoItemLista() {
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-sort-numeric-up"></i> Quantidade</label>
-                    <input type="number" id="itemQuantidade" class="form-input" min="1" value="1" inputmode="numeric">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-                    <input type="text" id="itemDescricao" class="form-input" placeholder="Ex: Arroz, Feijão...">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-primary" onclick="salvarNovoItemLista()" style="flex:2"><i class="fas fa-save"></i> Adicionar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal('Novo Item na Lista', 'fa-shopping-cart', conteudo);
-        }
-
-        async function salvarNovoItemLista() {
-            let qtd = parseInt(document.getElementById('itemQuantidade')?.value);
-            let desc = document.getElementById('itemDescricao')?.value.trim();
-
-            if (!qtd || !desc) {
-                showToast('Preencha quantidade e descrição', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('lista_compras').insert({
-                    user_id: App.currentUser.id,
-                    quantidade: qtd,
-                    descricao: desc,
-                    comprado: false,
-                    added_by: App.usuarioAtual || 'desconhecido'
-                });
-
-                verificarNotificacoes({ descricao: desc }, 'lista');
-                await registrarHistorico('criacao_lista', `Item adicionado: ${desc}`, { qtd, desc, usuario: App.usuarioAtual });
-                showToast('Item adicionado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
-        function alternarComprado(id) {
-            (async () => {
-                try {
-                    let item = App.dataCache.lista.find(i => i.id === id);
-                    if (item) {
-                        await App.supabase.from('lista_compras').update({
-                            comprado: !item.comprado
-                        }).eq('id', id);
-
-                        await registrarHistorico('alternar_lista', `Item ${item.comprado ? 'desmarcado' : 'marcado'}: ${item.descricao}`, { id, usuario: App.usuarioAtual });
-                        await carregarDados(true);
-                        await mostrarConteudo();
-                    }
-                } catch (error) {
-                    console.error('Erro ao alternar item:', error);
-                    showToast('Erro: ' + error.message, 'error');
-                }
-            })();
-        }
-
-        function deletarItemLista(id) {
-            if (confirm('Remover item da lista?')) {
-                (async () => {
-                    try {
-                        await App.supabase.from('lista_compras').delete().eq('id', id);
-                        await registrarHistorico('exclusao_lista', `Item removido da lista`, { id, usuario: App.usuarioAtual });
-                        showToast('Item removido!', 'success');
-                        await carregarDados(true);
-                        await mostrarConteudo();
-                    } catch (error) {
-                        console.error('Erro ao remover item:', error);
-                        showToast('Erro: ' + error.message, 'error');
-                    }
-                })();
-            }
-        }
-
-        function abrirNovoGiro() {
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-                    <input type="text" id="giroDescricao" class="form-input" placeholder="Ex: Empréstimo para João">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor Inicial</label>
-                    <input type="text" id="giroValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-user"></i> Pessoa</label>
-                    <input type="text" id="giroPessoa" class="form-input" placeholder="Nome da pessoa">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-primary" onclick="salvarNovoGiro()" style="flex:2"><i class="fas fa-save"></i> Salvar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal('Novo Giro', 'fa-hand-holding-usd', conteudo);
-        }
-
-        async function salvarNovoGiro() {
-            let desc = document.getElementById('giroDescricao')?.value.trim();
-            let valor = parseCurrency(document.getElementById('giroValor')?.value);
-            let pessoa = document.getElementById('giroPessoa')?.value.trim();
-
-            if (!desc || !valor || !pessoa) {
-                showToast('Preencha todos os campos', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('giros').insert({
-                    user_id: App.currentUser.id,
-                    descricao: desc,
-                    valor_inicial: valor,
-                    pessoa: pessoa,
-                    added_by: App.usuarioAtual || 'desconhecido'
-                });
-
-                await registrarHistorico('criacao_giro', `Giro criado: ${desc}`, { desc, valor, pessoa, usuario: App.usuarioAtual });
-                showToast('Giro salvo!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao salvar giro:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
-        function abrirPagamentoGiro(id, desc) {
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor do Pagamento</label>
-                    <input type="text" id="pagamentoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-align-left"></i> Descrição (opcional)</label>
-                    <input type="text" id="pagamentoDescricao" class="form-input" placeholder="Ex: Parcela 1">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-success" onclick="salvarPagamentoGiro('${id}','${desc}')" style="flex:2"><i class="fas fa-check"></i> Confirmar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal(`Pagar ${desc}`, 'fa-arrow-down', conteudo);
-        }
-
-        async function salvarPagamentoGiro(id, desc) {
-            let valor = parseCurrency(document.getElementById('pagamentoValor')?.value);
-            let descricao = document.getElementById('pagamentoDescricao')?.value.trim();
-
-            if (!valor) {
-                showToast('Digite o valor', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('movimentacoes_giro').insert({
-                    user_id: App.currentUser.id,
-                    giro_id: id,
-                    tipo: 'pagamento',
-                    valor: valor,
-                    descricao: descricao || `Pagamento para ${desc}`,
-                    data: new Date().toISOString(),
-                    added_by: App.usuarioAtual || 'desconhecido'
-                });
-
-                await registrarHistorico('pagamento_giro', `Pagamento de ${formatCurrency(valor)} para ${desc}`, { id, valor, usuario: App.usuarioAtual });
-                showToast('Pagamento registrado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao registrar pagamento:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
-        function abrirRecebimentoGiro(id, desc) {
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor do Recebimento</label>
-                    <input type="text" id="recebimentoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-align-left"></i> Descrição (opcional)</label>
-                    <input type="text" id="recebimentoDescricao" class="form-input" placeholder="Ex: Parcela 1">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-warning" onclick="salvarRecebimentoGiro('${id}','${desc}')" style="flex:2"><i class="fas fa-check"></i> Confirmar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal(`Receber ${desc}`, 'fa-arrow-up', conteudo);
-        }
-
-        async function salvarRecebimentoGiro(id, desc) {
-            let valor = parseCurrency(document.getElementById('recebimentoValor')?.value);
-            let descricao = document.getElementById('recebimentoDescricao')?.value.trim();
-
-            if (!valor) {
-                showToast('Digite o valor', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('movimentacoes_giro').insert({
-                    user_id: App.currentUser.id,
-                    giro_id: id,
-                    tipo: 'recebimento',
-                    valor: valor,
-                    descricao: descricao || `Recebimento de ${desc}`,
-                    data: new Date().toISOString(),
-                    added_by: App.usuarioAtual || 'desconhecido'
-                });
-
-                await registrarHistorico('recebimento_giro', `Recebimento de ${formatCurrency(valor)} de ${desc}`, { id, valor, usuario: App.usuarioAtual });
-                showToast('Recebimento registrado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao registrar recebimento:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
-        function editarGiro(id) {
-            let giro = App.dataCache.giros.find(g => g.id === id);
-            if (!giro) return;
-
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-                    <input type="text" id="giroDescricaoEdit" class="form-input" value="${giro.descricao}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-user"></i> Pessoa</label>
-                    <input type="text" id="giroPessoaEdit" class="form-input" value="${giro.pessoa || ''}">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-primary" onclick="salvarEdicaoGiro('${id}')" style="flex:2"><i class="fas fa-save"></i> Salvar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal('Editar Giro', 'fa-edit', conteudo);
-        }
-
-        async function salvarEdicaoGiro(id) {
-            let desc = document.getElementById('giroDescricaoEdit')?.value.trim();
-            let pessoa = document.getElementById('giroPessoaEdit')?.value.trim();
-
-            if (!desc || !pessoa) {
-                showToast('Preencha todos os campos', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('giros').update({
-                    descricao: desc,
-                    pessoa: pessoa
-                }).eq('id', id);
-
-                await registrarHistorico('edicao_giro', `Giro editado: ${desc}`, { id, usuario: App.usuarioAtual });
-                showToast('Giro atualizado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao editar giro:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
-        function deletarGiro(id) {
-            if (confirm('Tem certeza que deseja excluir este giro?')) {
-                (async () => {
-                    try {
-                        await App.supabase.from('movimentacoes_giro').delete().eq('giro_id', id);
-                        await App.supabase.from('giros').delete().eq('id', id);
-                        await registrarHistorico('exclusao_giro', `Giro excluído`, { id, usuario: App.usuarioAtual });
-                        showToast('Giro excluído!', 'success');
-                        await carregarDados(true);
-                        await mostrarConteudo();
-                    } catch (error) {
-                        console.error('Erro ao excluir giro:', error);
-                        showToast('Erro: ' + error.message, 'error');
-                    }
-                })();
-            }
-        }
-
         function abrirAdicionarValorSaldo(id) {
             let conteudo = `
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor para Adicionar</label>
-                    <input type="text" id="saldoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                    <input type="text" id="operacaoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
                 </div>
                 <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-success" onclick="confirmarAdicionarSaldo('${id}')" style="flex:2"><i class="fas fa-plus"></i> Adicionar</button>
+                    <button class="btn btn-success" onclick="processarOperacaoSaldo('${id}','adicionar')" style="flex:2"><i class="fas fa-plus"></i> Adicionar</button>
                     <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
                 </div>
             `;
             abrirModal('Adicionar ao Saldo', 'fa-plus-circle', conteudo);
         }
 
-        async function confirmarAdicionarSaldo(id) {
-            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
-            if (!valor) {
-                showToast('Digite um valor', 'warning');
-                return;
-            }
-
-            try {
-                let { data: saldoAtual } = await App.supabase.from('saldos').select('valor').eq('id', id).single();
-                if (saldoAtual) {
-                    let novoValor = saldoAtual.valor + valor;
-                    await App.supabase.from('saldos').update({ valor: novoValor }).eq('id', id);
-                    if (id === App.saldoCentral.id) {
-                        App.saldoCentral.valor = novoValor;
-                        atualizarSaldoHeader();
-                    }
-                }
-
-                await registrarHistorico('adicao_saldo', `Adicionado ${formatCurrency(valor)} ao saldo`, { id, valor, usuario: App.usuarioAtual });
-                showToast('Saldo atualizado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao adicionar saldo:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
         function abrirRetirarValorSaldo(id) {
             let conteudo = `
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor para Retirar</label>
-                    <input type="text" id="saldoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                    <input type="text" id="operacaoValor" class="form-input" placeholder="0,00" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
                 </div>
                 <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-warning" onclick="confirmarRetirarSaldo('${id}')" style="flex:2"><i class="fas fa-minus"></i> Retirar</button>
+                    <button class="btn btn-warning" onclick="processarOperacaoSaldo('${id}','retirar')" style="flex:2"><i class="fas fa-minus"></i> Retirar</button>
                     <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
                 </div>
             `;
             abrirModal('Retirar do Saldo', 'fa-minus-circle', conteudo);
         }
 
-        async function confirmarRetirarSaldo(id) {
-            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
-            if (!valor) {
-                showToast('Digite um valor', 'warning');
+        async function processarOperacaoSaldo(id, tipo) {
+            let valor = parseCurrency(document.getElementById('operacaoValor')?.value);
+            if (!valor || valor <= 0) {
+                showToast('Informe um valor válido', 'warning');
                 return;
             }
-
+            
             try {
                 let { data: saldoAtual } = await App.supabase.from('saldos').select('valor').eq('id', id).single();
                 if (saldoAtual) {
-                    let novoValor = saldoAtual.valor - valor;
+                    let novoValor;
+                    if (tipo === 'adicionar') {
+                        novoValor = saldoAtual.valor + valor;
+                    } else if (tipo === 'retirar') {
+                        if (saldoAtual.valor < valor) {
+                            showToast('Saldo insuficiente', 'warning');
+                            return;
+                        }
+                        novoValor = saldoAtual.valor - valor;
+                    } else {
+                        showToast('Operação inválida', 'error');
+                        return;
+                    }
+                    
                     await App.supabase.from('saldos').update({ valor: novoValor }).eq('id', id);
                     if (id === App.saldoCentral.id) {
                         App.saldoCentral.valor = novoValor;
                         atualizarSaldoHeader();
                     }
+                    
+                    await registrarHistorico(`${tipo}_saldo`, `${tipo === 'adicionar' ? 'Adicionado' : 'Retirado'} ${formatCurrency(valor)} ao saldo`, { id, valor, usuario: App.usuarioAtual });
+                    showToast(`Saldo ${tipo === 'adicionar' ? 'adicionado' : 'retirado'}!`, 'success');
+                    fecharModal();
+                    await carregarDados(true);
+                    await mostrarConteudo();
                 }
-
-                await registrarHistorico('retirada_saldo', `Retirado ${formatCurrency(valor)} do saldo`, { id, valor, usuario: App.usuarioAtual });
-                showToast('Saldo atualizado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
             } catch (error) {
-                console.error('Erro ao retirar saldo:', error);
+                console.error('Erro ao processar operação:', error);
                 showToast('Erro: ' + error.message, 'error');
             }
         }
@@ -5562,7 +5459,7 @@
                     
                     <div class="form-group" style="margin:20px 0">
                         <label class="form-label"><i class="fas fa-dollar-sign"></i> Novo Valor</label>
-                        <input type="text" id="saldoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
+                        <input type="text" id="operacaoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
                     </div>
                     
                     <div class="btn-group">
@@ -5575,7 +5472,7 @@
         }
 
         async function confirmarBalancoSaldo(id) {
-            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
+            let valor = parseCurrency(document.getElementById('operacaoValor')?.value);
             if (valor === undefined) {
                 showToast('Digite um valor válido', 'warning');
                 return;
@@ -5599,48 +5496,6 @@
             }
         }
 
-        function abrirAtualizarValorSaldo(id) {
-            let saldo = App.dataCache.saldos.find(s => s.id === id);
-            if (!saldo) return;
-
-            let conteudo = `
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Novo Valor</label>
-                    <input type="text" id="saldoValor" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
-                </div>
-                <div class="btn-group" style="margin-top:20px">
-                    <button class="btn btn-primary" onclick="confirmarAtualizarSaldo('${id}')" style="flex:2"><i class="fas fa-save"></i> Atualizar</button>
-                    <button class="btn" onclick="fecharModal()" style="flex:1;background:var(--gray);color:#fff">Cancelar</button>
-                </div>
-            `;
-            abrirModal('Atualizar Saldo', 'fa-sync-alt', conteudo);
-        }
-
-        async function confirmarAtualizarSaldo(id) {
-            let valor = parseCurrency(document.getElementById('saldoValor')?.value);
-            if (valor === undefined) {
-                showToast('Digite um valor válido', 'warning');
-                return;
-            }
-
-            try {
-                await App.supabase.from('saldos').update({ valor: valor }).eq('id', id);
-                if (id === App.saldoCentral.id) {
-                    App.saldoCentral.valor = valor;
-                    atualizarSaldoHeader();
-                }
-
-                await registrarHistorico('atualizacao_saldo', `Saldo atualizado para ${formatCurrency(valor)}`, { id, valor, usuario: App.usuarioAtual });
-                showToast('Saldo atualizado!', 'success');
-                fecharModal();
-                await carregarDados(true);
-                await mostrarConteudo();
-            } catch (error) {
-                console.error('Erro ao atualizar saldo:', error);
-                showToast('Erro: ' + error.message, 'error');
-            }
-        }
-
         function editarSaldo(id) {
             let saldo = App.dataCache.saldos.find(s => s.id === id);
             if (!saldo) return;
@@ -5649,6 +5504,10 @@
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-heading"></i> Nome do Saldo</label>
                     <input type="text" id="saldoNomeEdit" class="form-input" value="${saldo.nome || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor</label>
+                    <input type="text" id="saldoValorEdit" class="form-input" value="${saldo.valor.toFixed(2).replace('.', ',')}" inputmode="decimal" onkeyup="this.value = this.value.replace(/[^0-9,]/g, '')">
                 </div>
                 <div class="btn-group" style="margin-top:20px">
                     <button class="btn btn-primary" onclick="salvarEdicaoSaldo('${id}')" style="flex:2"><i class="fas fa-save"></i> Salvar</button>
@@ -5660,9 +5519,17 @@
 
         async function salvarEdicaoSaldo(id) {
             let nome = document.getElementById('saldoNomeEdit')?.value.trim();
+            let valor = parseCurrency(document.getElementById('saldoValorEdit')?.value);
 
             try {
-                await App.supabase.from('saldos').update({ nome: nome }).eq('id', id);
+                await App.supabase.from('saldos').update({ 
+                    nome: nome,
+                    valor: valor
+                }).eq('id', id);
+                if (id === App.saldoCentral.id) {
+                    App.saldoCentral.valor = valor;
+                    atualizarSaldoHeader();
+                }
                 await registrarHistorico('edicao_saldo', `Saldo renomeado para ${nome}`, { id, usuario: App.usuarioAtual });
                 showToast('Saldo atualizado!', 'success');
                 fecharModal();
@@ -5675,6 +5542,12 @@
         }
 
         function deletarSaldo(id) {
+            let saldo = App.dataCache.saldos.find(s => s.id === id);
+            if (saldo?.is_central) {
+                showToast('Saldo central não pode ser excluído', 'warning');
+                return;
+            }
+            
             if (confirm('Tem certeza que deseja excluir este saldo?')) {
                 (async () => {
                     try {

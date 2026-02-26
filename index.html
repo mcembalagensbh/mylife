@@ -1863,7 +1863,7 @@
 
             try {
                 // Envia o e-mail de recuperação
-                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                const { error } = await App.supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: 'https://mylife.app.br/redefinir-senha.html'
                 });
 
@@ -1878,10 +1878,17 @@
 
         const CONFIG = {
             supabase: {
-                url: 'https://rirvrrlgjetsgwhqqfvq.supabase.co',
-                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds'
-            },
-            mercadopago: {
+              // INICIALIZAÇÃO DO SUPABASE - COLOQUE ISSO ANTES DO CONFIG
+const SUPABASE_URL = 'https://rirvrrlgjetsgwhqqfvq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CONFIG = {
+    supabase: {
+        url: SUPABASE_URL,
+        anonKey: SUPABASE_ANON_KEY
+    },
+    mercadopago: {
                 links: {
                     mensal: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=9a30d25477b445028fd6374c1b5d51f9',
                     anual: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=59d5d72cfcee476b99776abcbddc4adf'
@@ -1944,8 +1951,9 @@
         };
 
         const App = {
-            supabase: supabase,
-            currentUser: null,
+            const App = {
+    supabase: supabase,  // AGORA USA A VARIÁVEL GLOBAL
+    currentUser: null,
             currentMonthOffset: 0,
             activeFilters: { contas: true, eventos: true },
             selectedDay: null,
@@ -5942,7 +5950,7 @@
 
         async function init() {
             try {
-                App.supabase = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+               
                 let { data: { session } } = await App.supabase.auth.getSession();
 
                 await inicializarNotificacoes();
@@ -6001,7 +6009,15 @@
                 document.getElementById('btnLogin').addEventListener('click', async () => {
                     let email = document.getElementById('loginEmail').value.trim();
                     let pass = document.getElementById('loginPassword').value;
-
+document.getElementById('btnLogin').addEventListener('click', async () => {
+    // ADICIONE ESTA VERIFICAÇÃO
+    if (!App.supabase) {
+        showToast('Erro de conexão com o banco de dados', 'error');
+        return;
+    }
+    
+    let email = document.getElementById('loginEmail').value.trim();
+    let pass = document.getElementById('loginPassword').value;
                     if (!email || !pass) {
                         showToast('Preencha email e senha', 'warning');
                         return;

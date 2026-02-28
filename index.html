@@ -2500,11 +2500,10 @@ document.addEventListener('DOMContentLoaded', function() {
         App.plano = 'gratis';
     }
 }
-     function atualizarStatusAssinaturaMenu() {
+    function atualizarStatusAssinaturaMenu() {
     let menuItem = document.getElementById('menuAssinaturaStatus');
     if (!menuItem) return;
     
-    // 🔥 USA A COLUNA 'plano' DO BANCO
     let plano = App.plano || 'gratis';
     
     if (plano === 'gratis') {
@@ -2517,7 +2516,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let diffMs = dataExp.getTime() - hoje.getTime();
             let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-           let diasRestantes = diffDias;  // <-- VOLTA COM -1
+            
+            // ✅ REMOVA O -1 DAQUI
+            let diasRestantes = diffDias;  // ANTES ERA: diffDias - 1
             
             if (diasRestantes < 0) {
                 menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
@@ -2530,9 +2531,9 @@ document.addEventListener('DOMContentLoaded', function() {
             menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
         }
     } else if (plano === 'mensal') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#3498db; font-weight:600">Mensal</span>`;
+        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#3498db">Mensal</span>`;
     } else if (plano === 'anual') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#f39c12; font-weight:600">Anual</span>`;
+        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#f39c12">Anual</span>`;
     }
 }
 

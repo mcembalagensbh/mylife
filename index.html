@@ -915,39 +915,21 @@
             font-size: .85em
         }
 
-        .loading-spinner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(5px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    color: white;
-    font-size: 1.3em;
-    font-weight: 600;
+      .loading-spinner {
+    text-align: center;
+    padding: 30px;
+    color: var(--gray);
+    display: none;
 }
 
 .loading-spinner i {
-    font-size: 4em;
-    margin-bottom: 20px;
-    color: var(--warning);
-    animation: spin 1s linear infinite;
-    text-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+    font-size: 2em;
+    margin-bottom: 10px;
+    color: var(--purple);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.loading-spinner div {
+    font-size: 14px;
 }
 
         .empty-state {
@@ -2334,6 +2316,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ou chamar aqui separadamente
     setTimeout(configurarValidacaoSenha, 500); // Pequeno delay para garantir que os elementos existam
 });
+
+
         
         function parseCurrency(valor) {
             if (!valor) return 0;
@@ -2478,7 +2462,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) { }
         }
 
-       async function carregarAssinatura() {
+      async function carregarAssinatura() {
     if (!App.currentUser) return;
     
     try {
@@ -2491,7 +2475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data && data.status === 'ativo') {
             // Guarda os dados da assinatura
             App.dataExpiracao = new Date(data.data_expiracao);
-            App.plano = data.plano || 'gratis'; // 'gratis', 'mensal' ou 'anual'
+            App.plano = data.plano || 'gratis';
             
             let hoje = new Date();
             hoje.setHours(0, 0, 0, 0);
@@ -2518,11 +2502,10 @@ document.addEventListener('DOMContentLoaded', function() {
         App.plano = 'gratis';
     }
 }
-     function atualizarStatusAssinaturaMenu() {
+    function atualizarStatusAssinaturaMenu() {
     let menuItem = document.getElementById('menuAssinaturaStatus');
     if (!menuItem) return;
     
-    // 🔥 USA A COLUNA 'plano' DO BANCO
     let plano = App.plano || 'gratis';
     
     if (plano === 'gratis') {
@@ -2535,7 +2518,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let diffMs = dataExp.getTime() - hoje.getTime();
             let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            let diasRestantes = diffDias - 1; // Ajuste
+            let diasRestantes = diffDias; // ✅ SEM SUBTRAÇÃO!
             
             if (diasRestantes < 0) {
                 menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
@@ -2554,89 +2537,107 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
-   function atualizarStatusAssinaturaMenu() {
-    let menuItem = document.getElementById('menuAssinaturaStatus');
-    if (!menuItem) return;
+function podeExecutarAcao() {
+    // Se não tem assinatura ativa, não pode executar ações
+    if (!App.assinaturaAtiva) {
+        return false;
+    }
     
-    // 🔥 SIMULAÇÃO: Depois virá do banco
-    // Mude aqui para testar: 'gratis', 'mensal' ou 'anual'
-    let tipoPlano = 'gratis'; 
-    
-    if (tipoPlano === 'gratis') {
-        if (App.assinaturaAtiva && App.dataExpiracao) {
-            let hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
-            
-            let dataExp = new Date(App.dataExpiracao);
-            dataExp.setHours(0, 0, 0, 0);
-            
-            let diffMs = dataExp.getTime() - hoje.getTime();
-            let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            let diasRestantes = diffDias - 1; // Ajuste
-            
-            if (diasRestantes < 0) {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
-            } else if (diasRestantes === 0) {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge">Hoje</span>`;
-            } else {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge">${diasRestantes} dias</span>`;
-            }
-        } else {
-            menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
+    // Verificação extra: se tem data de expiração e está expirada
+    if (App.dataExpiracao) {
+        let hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        
+        let dataExp = new Date(App.dataExpiracao);
+        dataExp.setHours(0, 0, 0, 0);
+        
+        if (dataExp < hoje) {
+            return false; // Expirado
         }
-    } else if (tipoPlano === 'mensal') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#3498db; font-weight:600">Mensal</span>`;
-    } else if (tipoPlano === 'anual') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#f39c12; font-weight:600">Anual</span>`;
+    }
+    
+    return true; // Pode executar
+}
+
+// ============================================
+// FUNÇÃO CENTRALIZADA PARA VERIFICAR E EXECUTAR AÇÕES
+// ============================================
+function executarAcaoComVerificacao(callback, mensagemBloqueio) {
+    // Primeiro verifica se tem usuário selecionado
+    if (!App.usuarioAtual) {
+        abrirSelecaoUsuario(true, null);
+        return;
+    }
+    
+    // Depois verifica se pode executar a ação (plano ativo)
+    if (!podeExecutarAcao()) {
+        abrirModalAssinaturaBloqueio();
+        return;
+    }
+    
+    // Se passou nas verificações, executa a ação
+    if (typeof callback === 'function') {
+        callback();
     }
 }
-        function podeExecutarAcao() {
-            return App.assinaturaAtiva;
-        }
 
-        function verificarEAcao(acao) {
-            if (!App.usuarioAtual) {
-                abrirSelecaoUsuario(true, acao);
-                return;
-            }
-            
-            if (!podeExecutarAcao()) {
-                abrirModalAssinaturaBloqueio();
-                return;
-            }
-            
-            executarAcao(acao);
-        }
+// Versão específica para ações do menu +
+function verificarEAcao(acao) {
+    executarAcaoComVerificacao(() => {
+        executarAcao(acao);
+    });
+}
 
-        function verificarEAcaoEdicao(callback) {
-            if (!App.assinaturaAtiva) {
-                abrirModalAssinaturaBloqueio();
-                return;
-            }
-            callback();
-        }
+// Versão específica para edições (botões de editar, pagar, excluir)
+function verificarEAcaoEdicao(callback) {
+    executarAcaoComVerificacao(callback);
+}
 
-        function executarAcao(acao) {
-            fecharAddMenu();
-            switch (acao) {
-                case 'conta': abrirNovaConta(); break;
-                case 'evento': abrirNovoEventoUnificado(); break;
-                case 'gasto': abrirNovoGasto(); break;
-                case 'lista': abrirNovoItemLista(); break;
-                case 'giro': abrirNovoGiro(); break;
-            }
-        }
+function verificarEAcao(acao) {
+    if (!App.usuarioAtual) {
+        abrirSelecaoUsuario(true, acao);
+        return;
+    }
+    
+    if (!podeExecutarAcao()) {
+        abrirModalAssinaturaBloqueio();
+        return;
+    }
+    
+    executarAcao(acao);
+}
+
+
+
+
+function verificarEAcaoEdicao(callback) {
+    if (!App.assinaturaAtiva) {
+        abrirModalAssinaturaBloqueio();
+        return;
+    }
+    callback();
+}
+
+function executarAcao(acao) {
+    fecharAddMenu();
+    switch (acao) {
+        case 'conta': abrirNovaConta(); break;
+        case 'evento': abrirNovoEventoUnificado(); break;
+        case 'gasto': abrirNovoGasto(); break;
+        case 'lista': abrirNovoItemLista(); break;
+        case 'giro': abrirNovoGiro(); break;
+    }
+}
 
 function abrirModalAssinatura() {
     let plano = App.plano || 'gratis';
-    console.log('🔵 Plano carregado:', plano); // Para debug
+    console.log('🔵 Plano carregado:', plano);
     
     if (plano === 'gratis') {
         abrirModalAssinaturaGratis();
         return;
     }
     
-    // Configurações para cada plano
     let config = {
         mensal: {
             nome: 'Plano Mensal',
@@ -2650,18 +2651,15 @@ function abrirModalAssinatura() {
         }
     };
     
-    // 🔴 VERIFICA SE O PLANO EXISTE
     let planoConfig = config[plano];
     if (!planoConfig) {
         console.error('❌ Plano inválido:', plano);
-        abrirModalAssinaturaGratis(); // Fallback para gratis
+        abrirModalAssinaturaGratis();
         return;
     }
     
-    // 🔴 CORREÇÃO DA DATA: Subtrai 1 dia
-    let dataOriginal = new Date(App.dataExpiracao);
-    dataOriginal.setDate(dataOriginal.getDate() - 1);
-    let dataExpiracao = dataOriginal.toLocaleDateString('pt-BR');
+    // ✅ USA A DATA EXATA DO BANCO (SEM SUBTRAIR)
+    let dataExpiracao = App.dataExpiracao ? App.dataExpiracao.toLocaleDateString('pt-BR') : 'Data não disponível';
     
     let conteudo = `
         <div style="padding:0">
@@ -2756,115 +2754,97 @@ function abrirModalAssinatura() {
     abrirModal('', '', conteudo);
 }
 
-// 🎁 MODAL PARA PLANO GRÁTIS (com dias e opções de pagamento)
 function abrirModalAssinaturaGratis() {
-    // 🔴 CORREÇÃO DA DATA: Subtrai 1 dia
-    let dataOriginal = new Date(App.dataExpiracao);
-    dataOriginal.setDate(dataOriginal.getDate() - 1);
-    let dataExpiracao = dataOriginal.toLocaleDateString('pt-BR');
+    let dataExpiracao = App.dataExpiracao ? App.dataExpiracao.toLocaleDateString('pt-BR') : 'Data não disponível';
     
-    // Calcula dias restantes
     let hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     
-    let dataExp = new Date(App.dataExpiracao);
-    dataExp.setHours(0, 0, 0, 0);
+    let dataExp = App.dataExpiracao ? new Date(App.dataExpiracao) : null;
+    if (dataExp) dataExp.setHours(0, 0, 0, 0);
     
-    let diffMs = dataExp.getTime() - hoje.getTime();
+    let diffMs = dataExp ? dataExp.getTime() - hoje.getTime() : 0;
     let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    let diasRestantes = diffDias - 1;
-    
-    let diasTexto = diasRestantes < 0 ? 'Expirado' : 
-                    diasRestantes === 0 ? 'Hoje' :
-                    diasRestantes === 1 ? '1 dia' : `${diasRestantes} dias`;
-    
+    let diasTexto = diffDias < 0 ? 'Expirado' : 
+                    diffDias === 0 ? 'Hoje' :
+                    diffDias === 1 ? '1 dia' : `${diffDias} dias`;
+
     let conteudo = `
-        <div style="padding:0">
-            <!-- HEADER GRÁTIS -->
-            <div style="background:linear-gradient(135deg, #667eea, #764ba2); padding:30px 20px; text-align:center; border-radius:12px 12px 0 0">
-                <div style="background:rgba(255,255,255,0.2); width:90px; height:90px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 15px; border:3px solid rgba(255,255,255,0.5)">
-                    <i class="fas fa-gift" style="font-size:45px; color:#fff"></i>
+        <div style="padding:0; max-height:90vh;">
+            <!-- HEADER SUPER COMPACTO -->
+            <div style="background:linear-gradient(135deg, #667eea, #764ba2); padding:10px 12px; text-align:center; border-radius:12px 12px 0 0">
+                <div style="background:rgba(255,255,255,0.2); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; border:2px solid rgba(255,255,255,0.3)">
+                    <i class="fas fa-gift" style="font-size:18px; color:#fff"></i>
                 </div>
-                <h2 style="color:#fff; margin:0; font-size:1.8em">Plano Grátis</h2>
-                <div style="background:rgba(255,255,255,0.2); display:inline-block; padding:5px 15px; border-radius:30px; margin-top:10px">
-                    <span style="color:#fff; font-weight:600">Período de teste</span>
+                <h2 style="color:#fff; margin:0; font-size:1.1rem">Plano Grátis</h2>
+                <div style="background:rgba(255,255,255,0.15); display:inline-block; padding:2px 10px; border-radius:20px; margin-top:3px; font-size:0.65rem">
+                    <span style="color:#fff; font-weight:600">Teste</span>
                 </div>
             </div>
             
-            <!-- CONTEÚDO -->
-            <div style="padding:20px">
-                <!-- CARD DE DIAS -->
-                <div style="background:linear-gradient(135deg, #667eea10, #764ba210); border:2px dashed #764ba240; border-radius:15px; padding:25px; margin-bottom:20px; text-align:center">
-                    <div style="font-size:1em; color:#6c757d; text-transform:uppercase; letter-spacing:1px">Dias restantes</div>
-                    <div style="font-size:3.5em; font-weight:700; background:linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; line-height:1; margin:5px 0">${diasTexto}</div>
-                    <div style="font-size:0.9em; color:#6c757d">Válido até ${dataExpiracao}</div>
-                </div>
-                
-                <!-- AVISO -->
-                <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:10px; padding:15px; margin-bottom:20px">
-                    <div style="display:flex; gap:10px">
-                        <i class="fas fa-info-circle" style="color:#856404; font-size:1.2em"></i>
-                        <div>
-                            <p style="margin:0 0 5px 0; color:#856404; font-weight:600">Você está no plano grátis</p>
-                            <p style="margin:0; color:#856404; font-size:0.9em">Todas as funcionalidades estão disponíveis. Após o término, escolha um plano para continuar editando.</p>
-                        </div>
+            <!-- CORPO COMPACTO -->
+            <div style="padding:12px">
+                <!-- CARD DE DIAS MINIATURA -->
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8f9fa; border-radius:20px; padding:6px 12px; margin-bottom:10px; border:1px solid #e9ecef">
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <span style="font-size:0.7rem; color:#6c757d">⏳</span>
+                        <span style="font-weight:700; font-size:1rem; background:linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip:text; -webkit-text-fill-color:transparent">${diasTexto}</span>
+                    </div>
+                    <div style="background:#e9ecef; padding:3px 10px; border-radius:20px; font-size:0.65rem">
+                        até ${dataExpiracao}
                     </div>
                 </div>
                 
-                <!-- PLANOS -->
-                <h4 style="text-align:center; margin:0 0 15px 0; color:#495057">Escolha seu plano:</h4>
+                <!-- INFORMAÇÃO IMPORTANTE: O QUE ACONTECE APÓS O PERÍODO -->
+                <div style="background:#e8f4fd; border-left:3px solid #3498db; border-radius:8px; padding:8px 10px; margin-bottom:12px; font-size:0.7rem; color:#2c3e50">
+                    <i class="fas fa-info-circle" style="color:#3498db; margin-right:4px"></i>
+                    <strong>Após o período de testes:</strong> Você não perde nada do que já lançou! Continua podendo <strong>visualizar todos os seus dados</strong> (contas, eventos, gastos, saldos). Apenas não poderá <strong>adicionar, editar ou excluir</strong> itens até assinar um plano. <br>(dados eliminados apenas após 3 meses sem assinaturas)
+                </div>
                 
-                <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; justify-content:center">
+                <!-- PLANOS LADO A LADO -->
+                <div style="display:flex; gap:6px; margin-bottom:12px">
                     <!-- MENSAL -->
-                    <div onclick="gerarLinkPagamento('mensal')" style="flex:1; min-width:140px; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:15px; text-align:center; cursor:pointer">
-                        <i class="fas fa-crown" style="font-size:32px; color:#ffc107"></i>
-                        <h4 style="margin:10px 0 5px; color:#495057">Mensal</h4>
-                        <div style="font-size:1.5em; font-weight:700; color:#3498db">R$ 17,90</div>
-                        <div style="font-size:0.8em; color:#6c757d; margin:5px 0">por mês</div>
-                        <button style="width:100%; padding:8px; background:#3498db; color:#fff; border:none; border-radius:6px; margin-top:10px; cursor:pointer">Assinar</button>
+                    <div onclick="gerarLinkPagamento('mensal')" style="flex:1; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:8px 4px; text-align:center; cursor:pointer">
+                        <i class="fas fa-crown" style="font-size:20px; color:#3498db"></i>
+                        <div style="font-weight:600; font-size:0.8rem; margin:2px 0">Mensal</div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#3498db">R$ 17,90</div>
+                        <button style="width:100%; padding:4px; background:#3498db; color:#fff; border:none; border-radius:20px; margin-top:4px; font-size:0.65rem; font-weight:600; cursor:pointer">Assinar</button>
                     </div>
                     
                     <!-- ANUAL -->
-                    <div onclick="gerarLinkPagamento('anual')" style="flex:1; min-width:140px; background:#fff; border:2px solid #ffc107; border-radius:12px; padding:15px; text-align:center; cursor:pointer; position:relative; overflow:hidden">
-                        <div style="position:absolute; top:10px; right:-30px; background:#dc3545; color:#fff; padding:5px 30px; font-size:0.7em; font-weight:700; transform:rotate(45deg)">-12%</div>
-                        <i class="fas fa-star" style="font-size:32px; color:#ffc107"></i>
-                        <h4 style="margin:10px 0 5px; color:#495057">Anual</h4>
-                        <div style="font-size:1.5em; font-weight:700; color:#f39c12">R$ 189,90</div>
-                        <div style="font-size:0.8em; color:#6c757d; margin:5px 0">por ano</div>
-                        <button style="width:100%; padding:8px; background:#f39c12; color:#fff; border:none; border-radius:6px; margin-top:10px; cursor:pointer">Assinar</button>
+                    <div onclick="gerarLinkPagamento('anual')" style="flex:1; background:#fff; border:2px solid #ffc107; border-radius:12px; padding:8px 4px; text-align:center; cursor:pointer; position:relative">
+                        <div style="position:absolute; top:2px; right:2px; background:#dc3545; color:#fff; padding:1px 10px; font-size:0.5rem; font-weight:700; border-radius:10px">-12%</div>
+                        <i class="fas fa-star" style="font-size:20px; color:#f39c12"></i>
+                        <div style="font-weight:600; font-size:0.8rem; margin:2px 0">Anual</div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#f39c12">R$ 189,90</div>
+                        <button style="width:100%; padding:4px; background:#f39c12; color:#fff; border:none; border-radius:20px; margin-top:4px; font-size:0.65rem; font-weight:600; cursor:pointer">Assinar</button>
                     </div>
                 </div>
                 
-                <!-- PAGAMENTO -->
-                <div style="background:#e3f2fd; border-radius:10px; padding:15px; margin-bottom:20px">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-                        <i class="fas fa-credit-card" style="color:#0d6efd; font-size:1.2em"></i>
-                        <span style="font-weight:600; color:#0d6efd">Formas de pagamento</span>
-                    </div>
-                    <div style="display:flex; gap:15px; flex-wrap:wrap">
-                        <span style="background:#fff; padding:5px 12px; border-radius:20px; font-size:0.9em; color:#495057"><i class="fab fa-cc-visa"></i> Cartão</span>
-                        <span style="background:#fff; padding:5px 12px; border-radius:20px; font-size:0.9em; color:#495057"><i class="fas fa-barcode"></i> Boleto</span>
-                        <span style="background:#fff; padding:5px 12px; border-radius:20px; font-size:0.9em; color:#495057"><i class="fab fa-mercadopago"></i> Mercado Pago</span>
+                <!-- PAGAMENTO MERCADO PAGO -->
+                <div style="background:#eef2ff; border-radius:20px; padding:6px 10px; margin-bottom:10px; display:flex; align-items:center; gap:6px">
+                    <i class="fab fa-mercadopago" style="color:#009ee3; font-size:1rem"></i>
+                    <div style="font-size:0.65rem; color:#1e293b; line-height:1.2">
+                        <span style="font-weight:600">Pagamentos via Mercado Pago</span>
+                        <span style="display:block; font-size:0.6rem; color:#475569">Mundo Carol Merc Emb e Informática Ltda</span>
                     </div>
                 </div>
                 
-                <!-- WHATSAPP -->
-                <button onclick="abrirSuporteWhatsApp()" style="width:100%; padding:15px; background:#25D366; color:#fff; border:none; border-radius:10px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; margin-bottom:10px">
-                    <i class="fab fa-whatsapp" style="font-size:1.3em"></i>
-                    Precisa de ajuda? Fale com o suporte
-                </button>
-                
-                <!-- FECHAR -->
-                <button onclick="fecharModal()" style="width:100%; padding:12px; background:#6c757d; color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer">
-                    Fechar
-                </button>
+                <!-- WHATSAPP E FECHAR LADO A LADO -->
+                <div style="display:flex; gap:6px">
+                    <button onclick="abrirSuporteWhatsApp()" style="flex:1; padding:8px 0; background:#25D366; color:#fff; border:none; border-radius:30px; font-weight:600; font-size:0.7rem; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer">
+                        <i class="fab fa-whatsapp" style="font-size:0.8rem"></i> Ajuda
+                    </button>
+                    <button onclick="fecharModal()" style="flex:1; padding:8px 0; background:#6c757d; color:#fff; border:none; border-radius:30px; font-weight:600; font-size:0.7rem; cursor:pointer">
+                        Fechar
+                    </button>
+                </div>
             </div>
         </div>
     `;
     
     abrirModal('', '', conteudo);
 }
-
 // 🔥 NOVA FUNÇÃO: Abrir WhatsApp com identificação
 function abrirSuporteWhatsApp() {
     let email = prompt("Por favor, digite seu e-mail para identificação:", App.currentUser?.email || "");
@@ -2891,25 +2871,23 @@ function abrirSuporteWhatsApp() {
 
 
 // ============================================
-// FUNÇÕES DE LOADING MELHORADAS
+// FUNÇÕES DE LOADING - VERSÃO ORIGINAL
 // ============================================
-// ============================================
-// FUNÇÕES DE LOADING MELHORADAS
-// ============================================
-function mostrarLoading(mensagem = 'Atualizando edições...') {
+function mostrarLoading(mensagem = 'Carregando...') {
     let loading = document.getElementById('loadingState');
     if (loading) {
         loading.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 4em; margin-bottom: 20px; color: var(--warning); text-shadow: 0 0 20px rgba(255, 193, 7, 0.5);"></i>
-                <div style="background: rgba(255, 255, 255, 0.15); padding: 12px 30px; border-radius: 50px; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: 1px; text-align: center;">
-                    ${mensagem}
-                </div>
-            </div>
+            <i class="fas fa-spinner fa-spin"></i>
+            <div>${mensagem}</div>
         `;
-        loading.style.display = 'flex';
-        loading.style.alignItems = 'center';
-        loading.style.justifyContent = 'center';
+        loading.style.display = 'block';
+    }
+}
+
+function esconderLoading() {
+    let loading = document.getElementById('loadingState');
+    if (loading) {
+        loading.style.display = 'none';
     }
 }
 
@@ -5394,6 +5372,65 @@ function atualizarEmailMenu() {
             })();
         }
 
+
+        // ============================================
+// MODAL DE BLOQUEIO PARA PLANO EXPIRADO
+// ============================================
+function abrirModalAssinaturaBloqueio() {
+    let conteudo = `
+        <div style="padding:20px; text-align:center">
+            <div style="background:var(--bg-danger-light); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; border:3px solid var(--danger)">
+                <i class="fas fa-lock" style="font-size:40px; color:var(--danger)"></i>
+            </div>
+            
+            <h3 style="color:var(--dark); margin-bottom:10px">Plano Expirado</h3>
+            
+            <p style="color:var(--gray); margin-bottom:20px; line-height:1.5">
+                Seu período de testes gratuitos expirou.<br>
+                Para continuar <strong>adicionando, editando ou excluindo</strong> itens, assine um dos planos abaixo.
+            </p>
+            
+            <div style="background:#e8f4fd; border-left:3px solid #3498db; border-radius:8px; padding:12px; margin-bottom:20px; font-size:0.9rem; text-align:left">
+                <i class="fas fa-info-circle" style="color:#3498db; margin-right:4px"></i>
+                <strong>Você não perde nada!</strong><br>
+                Todos os seus dados continuam salvos e você pode <strong>visualizar</strong> normalmente. Apenas não pode criar ou modificar itens.
+            </div>
+            
+            <!-- PLANOS LADO A LADO -->
+            <div style="display:flex; gap:8px; margin-bottom:16px">
+                <!-- MENSAL -->
+                <div onclick="gerarLinkPagamento('mensal')" style="flex:1; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:12px 4px; text-align:center; cursor:pointer">
+                    <i class="fas fa-crown" style="font-size:24px; color:#3498db"></i>
+                    <div style="font-weight:600; font-size:0.9rem; margin:4px 0">Mensal</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#3498db">R$ 17,90</div>
+                    <button style="width:100%; padding:6px; background:#3498db; color:#fff; border:none; border-radius:20px; margin-top:8px; font-size:0.7rem; font-weight:600; cursor:pointer">Assinar</button>
+                </div>
+                
+                <!-- ANUAL -->
+                <div onclick="gerarLinkPagamento('anual')" style="flex:1; background:#fff; border:2px solid #ffc107; border-radius:12px; padding:12px 4px; text-align:center; cursor:pointer; position:relative">
+                    <div style="position:absolute; top:2px; right:2px; background:#dc3545; color:#fff; padding:2px 10px; font-size:0.5rem; font-weight:700; border-radius:10px">-12%</div>
+                    <i class="fas fa-star" style="font-size:24px; color:#f39c12"></i>
+                    <div style="font-weight:600; font-size:0.9rem; margin:4px 0">Anual</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#f39c12">R$ 189,90</div>
+                    <button style="width:100%; padding:6px; background:#f39c12; color:#fff; border:none; border-radius:20px; margin-top:8px; font-size:0.7rem; font-weight:600; cursor:pointer">Assinar</button>
+                </div>
+            </div>
+            
+            <!-- WHATSAPP -->
+            <button onclick="abrirSuporteWhatsApp()" style="width:100%; padding:12px; background:#25D366; color:#fff; border:none; border-radius:30px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; margin-bottom:8px">
+                <i class="fab fa-whatsapp"></i> Fale com o suporte
+            </button>
+            
+            <!-- FECHAR -->
+            <button onclick="fecharModal()" style="width:100%; padding:10px; background:#6c757d; color:#fff; border:none; border-radius:30px; font-weight:600; cursor:pointer">
+                Fechar
+            </button>
+        </div>
+    `;
+    
+    abrirModal('Assinatura Necessária', 'fa-crown', conteudo);
+}
+
         function selecionarExclusaoConta(tipo, id, tipoItem, isRecorrente, regraId, dia, mes, ano) {
             (async () => {
                 try {
@@ -7463,133 +7500,96 @@ window.deletarGiro = deletarGiro;
     </script>
 
     <script>
-    // ============================================
-    // CARROSSEL DE BANNERS - COM SUPORTE A TOUCH
-    // ============================================
-    function iniciarCarrosselBanners() {
-        const carrossel = document.getElementById('bannerCarrossel');
-        if (!carrossel) {
-            console.log('Carrossel não encontrado');
-            return;
+// ============================================
+// CARROSSEL DE BANNERS - VERSÃO SUPER SIMPLES
+// ============================================
+function iniciarCarrosselBanners() {
+    console.log('Iniciando carrossel...');
+    
+    const carrossel = document.getElementById('bannerCarrossel');
+    if (!carrossel) {
+        console.log('Carrossel não encontrado');
+        return;
+    }
+    
+    const banners = carrossel.querySelectorAll('.banner-item');
+    const dots = carrossel.querySelectorAll('.banner-dot');
+    
+    console.log('Banners encontrados:', banners.length);
+    
+    if (banners.length === 0) return;
+    
+    let indiceAtual = 0;
+    
+    // Função para mostrar um banner
+    function mostrarBanner(indice) {
+        // Esconde todos
+        for (let i = 0; i < banners.length; i++) {
+            banners[i].classList.remove('active');
+            if (dots[i]) dots[i].classList.remove('active');
         }
         
-        const banners = carrossel.querySelectorAll('.banner-item');
-        const dots = carrossel.querySelectorAll('.banner-dot');
-        const container = carrossel.querySelector('.banner-container');
+        // Mostra o escolhido
+        banners[indice].classList.add('active');
+        if (dots[indice]) dots[indice].classList.add('active');
         
-        if (banners.length === 0) return;
+        indiceAtual = indice;
+        console.log('Mostrando banner:', indice);
+    }
+    
+    // Função para próximo banner
+    function proximoBanner() {
+        let proximo = (indiceAtual + 1) % banners.length;
+        mostrarBanner(proximo);
+    }
+    
+    // Configurar CLIQUE nos banners
+    for (let i = 0; i < banners.length; i++) {
+        // Pegar o link
+        const link = banners[i].getAttribute('data-link');
         
-        let currentIndex = 0;
-        let interval;
-        let touchStartX = 0;
-        let touchEndX = 0;
-        let isDragging = false;
-        
-        function showBanner(index) {
-            // Remove active de todos
-            banners.forEach(b => b.classList.remove('active'));
-            dots.forEach(d => d.classList.remove('active'));
-            
-            // Ativa o banner e dot atual
-            banners[index].classList.add('active');
-            dots[index].classList.add('active');
-            currentIndex = index;
-        }
-        
-        function nextBanner() {
-            let next = (currentIndex + 1) % banners.length;
-            showBanner(next);
-        }
-        
-        function prevBanner() {
-            let prev = (currentIndex - 1 + banners.length) % banners.length;
-            showBanner(prev);
-        }
-        
-        // Inicia
-        showBanner(0);
-        
-        // Rotação automática a cada 4 segundos
-        interval = setInterval(nextBanner, 4000);
-        
-        // ===== SUPORTE A TOUCH =====
-        carrossel.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-            isDragging = true;
-            clearInterval(interval); // Pausa rotação durante o toque
-        }, { passive: true });
-        
-        carrossel.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            touchEndX = e.touches[0].clientX;
-        }, { passive: true });
-        
-        carrossel.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            
-            const diffX = touchStartX - touchEndX;
-            
-            // Se arrastou mais de 50px para esquerda ou direita
-            if (Math.abs(diffX) > 50) {
-                if (diffX > 0) {
-                    // Arrastou para esquerda → próximo banner
-                    nextBanner();
-                } else {
-                    // Arrastou para direita → banner anterior
-                    prevBanner();
-                }
-            }
-            
-            isDragging = false;
-            
-            // Retoma rotação
-            interval = setInterval(nextBanner, 4000);
-        }, { passive: true });
-        
-        // ===== CLIQUE =====
-        carrossel.addEventListener('click', function(e) {
-            // Se clicou no dot, não abre link
-            if (e.target.classList.contains('banner-dot')) return;
-            
-            // Se estava arrastando, não abre link
-            if (Math.abs(touchStartX - touchEndX) > 10) return;
-            
-            const bannerAtivo = carrossel.querySelector('.banner-item.active');
-            const link = bannerAtivo.getAttribute('data-link');
+        // Adicionar evento de clique
+        banners[i].addEventListener('click', function(e) {
+            e.stopPropagation();
             if (link) {
+                console.log('Abrindo link:', link);
                 window.open(link, '_blank');
             }
         });
         
-        // Clique nos dots
-        dots.forEach((dot, idx) => {
-            dot.addEventListener('click', function(e) {
-                e.stopPropagation();
-                showBanner(idx);
-                
-                // Reinicia o intervalo
-                clearInterval(interval);
-                interval = setInterval(nextBanner, 4000);
-            });
-        });
-        
-        // Pausa quando mouse entra
-        carrossel.addEventListener('mouseenter', () => {
-            clearInterval(interval);
-        });
-        
-        // Retoma quando mouse sai
-        carrossel.addEventListener('mouseleave', () => {
-            interval = setInterval(nextBanner, 4000);
-        });
-        
-        console.log('✅ Carrossel com suporte a touch iniciado');
+        // Garantir que a imagem não bloqueie
+        const img = banners[i].querySelector('img');
+        if (img) {
+            img.style.pointerEvents = 'none';
+        }
     }
+    
+    // Configurar CLIQUE nos dots
+    for (let i = 0; i < dots.length; i++) {
+        dots[i].addEventListener('click', function(e) {
+            e.stopPropagation();
+            mostrarBanner(i);
+        });
+    }
+    
+    // Mostrar o primeiro banner
+    mostrarBanner(0);
+    
+    // INICIAR ROTAÇÃO - isso é o que faz girar!
+    setInterval(function() {
+        console.log('Girando...');
+        proximoBanner();
+    }, 3000); // Troca a cada 3 segundos
+    
+    console.log('✅ Carrossel iniciado - deve girar a cada 3 segundos');
+}
 
-    // Inicia quando a página carregar
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(iniciarCarrosselBanners, 1000);
-    });
+// Inicia quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    // Pequeno delay para garantir que tudo carregou
+    setTimeout(iniciarCarrosselBanners, 1000);
+});
 </script>
 </body>
 </html>
+

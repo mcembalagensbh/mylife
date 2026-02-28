@@ -2526,7 +2526,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let diffMs = dataExp.getTime() - hoje.getTime();
             let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             
-            // 🔥 LOGS PARA DEBUG
+            // LOGS PARA DEBUG
             console.log("🔍 MENU - HOJE:", hoje.toLocaleDateString('pt-BR'));
             console.log("🔍 MENU - DATA EXP (banco):", dataExp.toLocaleDateString('pt-BR'));
             console.log("🔍 MENU - diffMs:", diffMs);
@@ -2553,79 +2553,42 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
-  function atualizarStatusAssinaturaMenu() {
-    let menuItem = document.getElementById('menuAssinaturaStatus');
-    if (!menuItem) return;
+function podeExecutarAcao() {
+    return App.assinaturaAtiva;
+}
+
+function verificarEAcao(acao) {
+    if (!App.usuarioAtual) {
+        abrirSelecaoUsuario(true, acao);
+        return;
+    }
     
-    let plano = App.plano || 'gratis';
+    if (!podeExecutarAcao()) {
+        abrirModalAssinaturaBloqueio();
+        return;
+    }
     
-    if (plano === 'gratis') {
-        if (App.assinaturaAtiva && App.dataExpiracao) {
-            let hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
-            
-            let dataExp = new Date(App.dataExpiracao);
-            dataExp.setHours(0, 0, 0, 0);
-            
-            let diffMs = dataExp.getTime() - hoje.getTime();
-            let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            
-            // ✅ REMOVA O -1 DAQUI
-            let diasRestantes = diffDias;  // ANTES ERA: diffDias - 1
-            
-            if (diasRestantes < 0) {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
-            } else if (diasRestantes === 0) {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge">Hoje</span>`;
-            } else {
-                menuItem.innerHTML = `Premium <span class="assinatura-badge">${diasRestantes} dias</span>`;
-            }
-        } else {
-            menuItem.innerHTML = `Premium <span class="assinatura-badge assinatura-expirada">Expirada</span>`;
-        }
-    } else if (plano === 'mensal') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#3498db">Mensal</span>`;
-    } else if (plano === 'anual') {
-        menuItem.innerHTML = `Premium <span class="assinatura-badge" style="background:#f39c12">Anual</span>`;
+    executarAcao(acao);
+}
+
+function verificarEAcaoEdicao(callback) {
+    if (!App.assinaturaAtiva) {
+        abrirModalAssinaturaBloqueio();
+        return;
+    }
+    callback();
+}
+
+function executarAcao(acao) {
+    fecharAddMenu();
+    switch (acao) {
+        case 'conta': abrirNovaConta(); break;
+        case 'evento': abrirNovoEventoUnificado(); break;
+        case 'gasto': abrirNovoGasto(); break;
+        case 'lista': abrirNovoItemLista(); break;
+        case 'giro': abrirNovoGiro(); break;
     }
 }
-        function podeExecutarAcao() {
-            return App.assinaturaAtiva;
-        }
-
-        function verificarEAcao(acao) {
-            if (!App.usuarioAtual) {
-                abrirSelecaoUsuario(true, acao);
-                return;
-            }
-            
-            if (!podeExecutarAcao()) {
-                abrirModalAssinaturaBloqueio();
-                return;
-            }
-            
-            executarAcao(acao);
-        }
-
-        function verificarEAcaoEdicao(callback) {
-            if (!App.assinaturaAtiva) {
-                abrirModalAssinaturaBloqueio();
-                return;
-            }
-            callback();
-        }
-
-        function executarAcao(acao) {
-            fecharAddMenu();
-            switch (acao) {
-                case 'conta': abrirNovaConta(); break;
-                case 'evento': abrirNovoEventoUnificado(); break;
-                case 'gasto': abrirNovoGasto(); break;
-                case 'lista': abrirNovoItemLista(); break;
-                case 'giro': abrirNovoGiro(); break;
-            }
-        }
-
 function abrirModalAssinatura() {
     let plano = App.plano || 'gratis';
     console.log('🔵 Plano carregado:', plano); // Para debug

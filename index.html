@@ -2632,7 +2632,7 @@ function abrirModalAssinatura() {
         }
     };
     
-    // 🔴 VERIFICA SE O PLANO EXISTE
+    // Verifica se o plano existe
     let planoConfig = config[plano];
     if (!planoConfig) {
         console.error('❌ Plano inválido:', plano);
@@ -2640,8 +2640,8 @@ function abrirModalAssinatura() {
         return;
     }
     
-    // 🔴 CORREÇÃO DA DATA: Subtrai 1 dia
-    let dataExpiracao = dataOriginal.toLocaleDateString('pt-BR');
+    // ✅ DATA SEM SUBTRAÇÃO - DIRETO DO BANCO
+    let dataExpiracao = new Date(App.dataExpiracao).toLocaleDateString('pt-BR');
     
     let conteudo = `
         <div style="padding:0">
@@ -2738,11 +2738,10 @@ function abrirModalAssinatura() {
 
 // 🎁 MODAL PARA PLANO GRÁTIS (com dias e opções de pagamento)
 function abrirModalAssinaturaGratis() {
-    // 🔴 CORREÇÃO DA DATA: Subtrai 1 dia
-   
-    let dataExpiracao = dataOriginal.toLocaleDateString('pt-BR');
+    // ✅ DATA SEM SUBTRAÇÃO - DIRETO DO BANCO
+    let dataExpiracao = new Date(App.dataExpiracao).toLocaleDateString('pt-BR');
     
-    // Calcula dias restantes
+    // Calcula dias restantes (SEM -1)
     let hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     
@@ -2751,7 +2750,7 @@ function abrirModalAssinaturaGratis() {
     
     let diffMs = dataExp.getTime() - hoje.getTime();
     let diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    let diasRestantes = diffDias;
+    let diasRestantes = diffDias; // ✅ SEM O -1
     
     let diasTexto = diasRestantes < 0 ? 'Expirado' : 
                     diasRestantes === 0 ? 'Hoje' :

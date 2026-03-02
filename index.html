@@ -1840,20 +1840,38 @@
                 </div>
             </div>
             <div id="registerForm" style="display:none">
+    <!-- MENSAGEM INFORMATIVA SOBRE CONTA FAMILIAR -->
+    <div style="background: #e8f4fd; border-left: 4px solid #3498db; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+        <i class="fas fa-info-circle" style="color: #3498db; margin-right: 8px;"></i>
+        <strong>Conta única por família</strong>
+        <p style="margin: 5px 0 0 0; color: #2c3e50; font-size: 12px;">
+            Este e-mail e senha serão os mesmos utilizados em todos os celulares ou computadores da sua família. 
+            Todos terão acesso aos mesmos dados (contas, eventos, gastos) em tempo real.
+        </p>
+    </div>
+
     <div class="form-group">
-        <label class="form-label"><i class="fas fa-user"></i> Nome</label>
-        <input type="text" id="registerName" class="form-input" placeholder="Seu nome" autocomplete="name">
+        <label class="form-label"><i class="fas fa-user"></i> Nome Completo</label>
+        <input type="text" id="registerName" class="form-input" placeholder="Ex: João da Silva" autocomplete="name" required>
+        <small style="color: var(--gray); font-size: 11px;">* Seu nome para identificação nos registros</small>
     </div>
     
     <div class="form-group">
-        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
-        <input type="email" id="registerEmail" class="form-input" placeholder="seu@email.com" inputmode="email" autocomplete="email">
+        <label class="form-label"><i class="fas fa-phone"></i> Celular (com DDD)</label>
+        <input type="tel" id="registerPhone" class="form-input" placeholder="Ex: 31999999999" inputmode="numeric" maxlength="11" autocomplete="tel" required>
+        <small style="color: var(--gray); font-size: 11px;">* Apenas números, com DDD (ex: 31999999999)</small>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label"><i class="fas fa-envelope"></i> Email (para login)</label>
+        <input type="email" id="registerEmail" class="form-input" placeholder="seu@email.com" inputmode="email" autocomplete="email" required>
+        <small style="color: var(--gray); font-size: 11px;">* Será usado por todos da família para acessar</small>
     </div>
     
     <div class="form-group">
         <label class="form-label"><i class="fas fa-lock"></i> Senha</label>
         <div style="position: relative;">
-            <input type="password" id="registerPassword" class="form-input" placeholder="Mínimo 6 caracteres" autocomplete="new-password" style="padding-right: 40px;">
+            <input type="password" id="registerPassword" class="form-input" placeholder="Mínimo 6 caracteres" autocomplete="new-password" style="padding-right: 40px;" required>
             <span onclick="toggleSenha('registerPassword')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer;">
                 <i class="fas fa-eye" id="toggleRegisterPassword"></i>
             </span>
@@ -1864,7 +1882,7 @@
     <div class="form-group">
         <label class="form-label"><i class="fas fa-lock"></i> Confirmar Senha</label>
         <div style="position: relative;">
-            <input type="password" id="registerConfirmPassword" class="form-input" placeholder="Digite a senha novamente" autocomplete="new-password" style="padding-right: 40px;">
+            <input type="password" id="registerConfirmPassword" class="form-input" placeholder="Digite a senha novamente" autocomplete="new-password" style="padding-right: 40px;" required>
             <span onclick="toggleSenha('registerConfirmPassword')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer;">
                 <i class="fas fa-eye" id="toggleRegisterConfirmPassword"></i>
             </span>
@@ -1876,6 +1894,11 @@
     <button class="btn btn-success" id="btnRegister" style="width:100%" disabled>
         <i class="fas fa-user-plus"></i> Criar Conta
     </button>
+    
+    <div style="margin-top: 16px; background: #f8f9fa; padding: 10px; border-radius: 6px; font-size: 12px; color: #666; text-align: center;">
+        <i class="fas fa-users" style="color: #667eea;"></i> 
+        Uma única conta para toda a família. Todos terão acesso aos mesmos dados em tempo real.
+    </div>
     
     <div class="auth-toggle" style="margin-top: 16px;">
         Já tem conta? <a class="auth-link" id="linkLogin">Entrar</a>
@@ -8984,13 +9007,21 @@ window.deletarItemLista = deletarItemLista;
 
               document.getElementById('btnRegister').addEventListener('click', async () => {
     const nome = document.getElementById('registerName').value.trim();
+    const phone = document.getElementById('registerPhone').value.trim();
     const email = document.getElementById('registerEmail').value.trim();
     const senha = document.getElementById('registerPassword').value;
     const confirmSenha = document.getElementById('registerConfirmPassword').value;
     
     // Validações
-    if (!nome || !email || !senha || !confirmSenha) {
+    if (!nome || !phone || !email || !senha || !confirmSenha) {
         showToast('Preencha todos os campos', 'warning');
+        return;
+    }
+    
+    // Validar telefone (apenas números, 10 ou 11 dígitos)
+    const phoneRegex = /^\d{10,11}$/;
+    if (!phoneRegex.test(phone)) {
+        showToast('Digite um celular válido com DDD (ex: 31999999999)', 'warning');
         return;
     }
     
@@ -9020,7 +9051,12 @@ window.deletarItemLista = deletarItemLista;
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpcnZycmxnamV0c2d3aHFxZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDM2MzgsImV4cCI6MjA4NjIxOTYzOH0.1T5eQnQXMCRqOSxtYFIHMedAF_D0Jo4Mg36LZHLJ2ds'
             },
-            body: JSON.stringify({ email, password: senha, nome })
+            body: JSON.stringify({ 
+                email, 
+                password: senha, 
+                nome,
+                phone  // 🔴 NOVO CAMPO!
+            })
         });
 
         const data = await response.json();
@@ -9030,6 +9066,7 @@ window.deletarItemLista = deletarItemLista;
             
             // Limpar campos
             document.getElementById('registerName').value = '';
+            document.getElementById('registerPhone').value = '';
             document.getElementById('registerEmail').value = '';
             document.getElementById('registerPassword').value = '';
             document.getElementById('registerConfirmPassword').value = '';

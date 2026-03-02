@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "br.app.mylife",
+    "sha256_cert_fingerprints": [
+      "B9:88:92:8C:CE:9B:E7:2C:C7:CF:1E:76:9D:91:C3:CC:6B:5C:20:88:E9:D9:0E:C9:F2:44:A6:C4:42:25:A2:6D"
+    ]
+  }
+}]

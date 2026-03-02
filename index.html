@@ -9623,6 +9623,47 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
+
+<!-- Modal Informativo - Conta Familiar -->
+<div class="modal-overlay" id="modalInfoFamiliar" style="display: none;">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+            <h2 style="color: var(--primary-dark); margin: 0 auto; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-users" style="color: var(--primary);"></i> 
+                Conta Familiar
+            </h2>
+            <button class="close-modal" onclick="fecharModalInfo()" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--gray);">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea10, #764ba210); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-home" style="font-size: 50px; color: var(--primary);"></i>
+            </div>
+            
+            <h3 style="margin-bottom: 15px; color: var(--dark);">Uma única conta para toda família</h3>
+            
+            <div style="background: #e8f4fd; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: left;">
+                <p style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
+                    <span>O <strong>mesmo e-mail e senha</strong> serão utilizados em todos os celulares ou computadores da sua família.</span>
+                </p>
+                <p style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-sync-alt" style="color: var(--primary); font-size: 20px;"></i>
+                    <span>Todos terão acesso aos <strong>mesmos dados</strong> (contas, eventos, gastos) em tempo real.</span>
+                </p>
+            </div>
+            
+            <button class="btn btn-primary" onclick="fecharModalInfoEConfirmar()" style="width: 100%; padding: 15px; font-size: 16px;">
+                <i class="fas fa-check"></i> Entendi, continuar
+            </button>
+            
+            <p style="margin-top: 15px; color: var(--gray); font-size: 12px;">
+                Ao clicar em "Entendi", você confirma que leu e entendeu como funciona a conta familiar.
+            </p>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
 

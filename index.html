@@ -1808,6 +1808,8 @@
     color: var(--gray);
 }
 
+
+
 .fa-eye:hover, .fa-eye-slash:hover {
     color: var(--purple);
 }
@@ -1836,20 +1838,10 @@
                     <i class="fas fa-sign-in-alt"></i> Entrar
                 </button>
                 <div class="auth-toggle">
-                    Não tem conta? <a class="auth-link" id="linkRegister">Registrar</a>
+                    Não tem conta? <a class="auth-link" id="linkRegister" onclick="abrirModalInfo(); return false;" href="#">Registrar</a>
                 </div>
             </div>
             <div id="registerForm" style="display:none">
-    <!-- MENSAGEM INFORMATIVA SOBRE CONTA FAMILIAR -->
-    <div style="background: #e8f4fd; border-left: 4px solid #3498db; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
-        <i class="fas fa-info-circle" style="color: #3498db; margin-right: 8px;"></i>
-        <strong>Conta única por família</strong>
-        <p style="margin: 5px 0 0 0; color: #2c3e50; font-size: 12px;">
-            Este e-mail e senha serão os mesmos utilizados em todos os celulares ou computadores da sua família. 
-            Todos terão acesso aos mesmos dados (contas, eventos, gastos) em tempo real.
-        </p>
-    </div>
-
     <div class="form-group">
         <label class="form-label"><i class="fas fa-user"></i> Nome Completo</label>
         <input type="text" id="registerName" class="form-input" placeholder="Ex: João da Silva" autocomplete="name" required>
@@ -1894,11 +1886,6 @@
     <button class="btn btn-success" id="btnRegister" style="width:100%" disabled>
         <i class="fas fa-user-plus"></i> Criar Conta
     </button>
-    
-    <div style="margin-top: 16px; background: #f8f9fa; padding: 10px; border-radius: 6px; font-size: 12px; color: #666; text-align: center;">
-        <i class="fas fa-users" style="color: #667eea;"></i> 
-        Uma única conta para toda a família. Todos terão acesso aos mesmos dados em tempo real.
-    </div>
     
     <div class="auth-toggle" style="margin-top: 16px;">
         Já tem conta? <a class="auth-link" id="linkLogin">Entrar</a>
@@ -2293,6 +2280,17 @@
         function formatCurrency(valor) {
             return 'R$ ' + (valor || 0).toFixed(2).replace('.', ',');
         }
+
+
+
+        function fecharModalInfo() {
+    document.getElementById('modalInfoFamiliar').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+}
+
+
+
 // Função para mostrar/esconder senha
 function toggleSenha(inputId) {
     const input = document.getElementById(inputId);
@@ -6789,6 +6787,24 @@ function atualizarTipoFimEvento() {
             }
         }
 
+
+        // Funções para o modal informativo
+function abrirModalInfo() {
+    document.getElementById('modalInfoFamiliar').style.display = 'flex';
+}
+
+function fecharModalInfo() {
+    document.getElementById('modalInfoFamiliar').style.display = 'none';
+}
+
+function fecharModalInfoEConfirmar() {
+    fecharModalInfo();
+    // Aqui você pode adicionar qualquer ação de confirmação se necessário
+    // Por exemplo, mostrar o formulário de registro se ele estiver oculto
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+}
+
         function abrirModalPagamento(id, desc, valor, regraId, dia, mes, ano, isRecorrente, codigoPagamento) {
             let codigoHtml = codigoPagamento ? `
                 <div class="payment-info">
@@ -9415,6 +9431,46 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(iniciarCarrosselBanners, 1000);
 });
 </script>
+
+<!-- Modal Informativo - Conta Familiar -->
+<div class="modal-overlay" id="modalInfoFamiliar" style="display: none;">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+            <h2 style="color: var(--primary-dark); margin: 0 auto; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-users" style="color: var(--primary);"></i> 
+                Conta Familiar
+            </h2>
+            <button class="close-modal" onclick="fecharModalInfo()" style="position: absolute; top: 15px; right: 15px;">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea10, #764ba210); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-home" style="font-size: 50px; color: var(--primary);"></i>
+            </div>
+            
+            <h3 style="margin-bottom: 15px; color: var(--dark);">Uma única conta para toda família</h3>
+            
+            <div style="background: #e8f4fd; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: left;">
+                <p style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
+                    <span>O <strong>mesmo e-mail e senha</strong> serão utilizados em todos os celulares ou computadores da sua família.</span>
+                </p>
+                <p style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-sync-alt" style="color: var(--primary); font-size: 20px;"></i>
+                    <span>Todos terão acesso aos <strong>mesmos dados</strong> (contas, eventos, gastos) em tempo real.</span>
+                </p>
+            </div>
+            
+            <button class="btn btn-primary" onclick="fecharModalInfoEConfirmar()" style="width: 100%; padding: 15px; font-size: 16px;">
+                <i class="fas fa-check"></i> Entendi, continuar
+            </button>
+            
+            <p style="margin-top: 15px; color: var(--gray); font-size: 12px;">
+                Ao clicar em "Entendi", você confirma que leu e entendeu como funciona a conta familiar.
+            </p>
+        </div>
+    </div>
+</div>
 </body>
 </html>
 

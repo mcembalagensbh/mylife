@@ -29,11 +29,37 @@
             overflow: hidden;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             animation: fadeIn 0.5s ease;
+            position: relative;
         }
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Botão X no topo direito */
+        .close-x {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .close-x:hover {
+            background: rgba(0, 0, 0, 0.2);
+            color: #333;
         }
         
         .header {
@@ -171,6 +197,17 @@
             box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
         }
         
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+            margin-top: 0;
+        }
+        
         .note {
             margin-top: 16px;
             font-size: 0.7rem;
@@ -188,6 +225,11 @@
 </head>
 <body>
     <div class="container">
+        <!-- Botão X no topo direito -->
+        <button class="close-x" onclick="voltarParaApp()">
+            <i class="fas fa-times"></i>
+        </button>
+        
         <div class="header">
             <i class="fab fa-google"></i>
             <h1>Google Calendar Conectado!</h1>
@@ -240,7 +282,15 @@
                 <p style="font-size: 0.75rem; color: #6c757d; margin-top: 8px;">Você pode ativar/desativar cada tipo no menu Configurações.</p>
             </div>
             
-           
+            <!-- BOTÕES DE AÇÃO -->
+            <div class="btn-group">
+                <button class="btn" onclick="abrirConfiguracoes()">
+                    <i class="fas fa-cog"></i> Personalizar
+                </button>
+                <button class="btn btn-secondary" onclick="voltarParaApp()">
+                    <i class="fas fa-home"></i> Fechar
+                </button>
+            </div>
             
             <div class="note">
                 <i class="fas fa-lock"></i> Seus dados são protegidos e apenas você tem acesso.

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Cancelamento - My Life</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f8f9fa;
+            color: #2c3e50;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .content h2 {
+            color: #667eea;
+            font-size: 1.3rem;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .content h2:first-of-type {
+            margin-top: 0;
+        }
+        
+        .content h3 {
+            color: #764ba2;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .content p {
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+        
+        .content ul, .content ol {
+            margin: 10px 0 20px 30px;
+            color: #4a5568;
+        }
+        
+        .content li {
+            margin-bottom: 8px;
+        }
+        
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .last-updated {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #718096;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .btn-back {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            margin-top: 20px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-back:hover {
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Política de Cancelamento</h1>
+            <p>My Life - Gestor Doméstico</p>
+        </div>
+        
+        <div class="content">
+            <p><strong>Última atualização:</strong> 27 de março de 2026</p>
+            
+            <div class="warning-box">
+                <strong>⚠️ Importante:</strong> Leia atentamente esta política antes de contratar nossos serviços.
+            </div>
+            
+            <h2>1. Tipos de Assinatura</h2>
+            <p>O My Life oferece duas modalidades de assinatura premium:</p>
+            <ul>
+                <li><strong>Plano Mensal:</strong> R$ 17,90/mês - Renovação automática mensal.</li>
+                <li><strong>Plano Anual:</strong> R$ 189,90/ano - Renovação automática anual (economia de 12%).</li>
+            </ul>
+            
+            <h2>2. Como Cancelar</h2>
+            <p>Você pode cancelar sua assinatura a qualquer momento através de:</p>
+            <ul>
+                <li><strong>Opção 1:</strong> Acesse o menu do aplicativo → Premium → Gerenciar Assinatura</li>
+                <li><strong>Opção 2:</strong> Entre em contato pelo e-mail <strong>hcdtec.mylife@gmail.com</strong></li>
+                <li><strong>Opção 3:</strong> WhatsApp (31) 98323-8087</li>
+            </ul>
+            
+            <div class="info-box">
+                <strong>📌 Importante:</strong> O cancelamento deve ser solicitado com pelo menos 24 horas de antecedência da data de renovação para evitar a cobrança do próximo ciclo.
+            </div>
+            
+            <h2>3. Política de Reembolso</h2>
+            
+            <h3>3.1. Teste Gratuito (30 dias)</h3>
+            <p>Durante o período de teste de 30 dias, você pode cancelar a qualquer momento sem nenhum custo. Não haverá cobrança se o cancelamento for feito antes do término do período de teste.</p>
+            
+            <h3>3.2. Planos Pagos</h3>
+            <p><strong>Não oferecemos reembolso</strong> por períodos não utilizados após a confirmação do pagamento. Ao contratar um plano, você concorda com esta política.</p>
+            <ul>
+                <li><strong>Plano Mensal:</strong> Após o pagamento, o acesso permanece até o final do ciclo mensal, mesmo com cancelamento.</li>
+                <li><strong>Plano Anual:</strong> Após o pagamento, o acesso permanece até o final do ciclo anual, mesmo com cancelamento.</li>
+            </ul>
+            
+            <div class="warning-box">
+                <strong>⚠️ Exceções:</strong> Reembolsos podem ser considerados em casos excepcionais, como falhas técnicas comprovadas que impeçam o uso do serviço, analisadas caso a caso pela nossa equipe de suporte.
+            </div>
+            
+            <h2>4. O que Acontece Após o Cancelamento</h2>
+            
+            <h3>4.1. Durante o período pago</h3>
+            <p>Após solicitar o cancelamento, você continuará com acesso completo às funcionalidades premium até o final do ciclo de faturamento atual (fim do mês ou ano).</p>
+            
+            <h3>4.2. Após o término do período</h3>
+            <p>Sua conta será convertida para o plano grátis, com as seguintes limitações:</p>
+            <ul>
+                <li>✅ Visualização de todos os dados já cadastrados.</li>
+                <li>❌ Não será possível adicionar, editar ou excluir novos itens.</li>
+                <li>✅ Os dados permanecem armazenados por até 3 meses sem assinatura ativa.</li>
+            </ul>
+            
+            <h3>4.3. Dados Excluídos</h3>
+            <p>Após 3 meses sem assinatura ativa, os dados poderão ser removidos permanentemente. Para evitar perda de dados, recomendamos reativar a assinatura dentro deste período ou exportar seus dados antes do cancelamento.</p>
+            
+            <h2>5. Reativação da Assinatura</h2>
+            <p>Se você cancelar e depois quiser reativar, poderá fazê-lo a qualquer momento. Seus dados serão mantidos por até 3 meses. Após a reativação, você terá acesso novamente a todas as funcionalidades premium.</p>
+            
+            <div class="success-box">
+                <strong>✅ Para reativar:</strong> Basta acessar o menu → Premium → Escolher o plano desejado e concluir o pagamento.
+            </div>
+            
+            <h2>6. Falecimento do Titular</h2>
+            <p>Em caso de falecimento do titular da conta, os familiares ou responsáveis legais podem solicitar o cancelamento da assinatura e a exclusão dos dados mediante apresentação de documentação comprobatória.</p>
+            
+            <h2>7. Cancelamento por Parte do My Life</h2>
+            <p>Reservamo-nos o direito de cancelar ou suspender sua conta se:</p>
+            <ul>
+                <li>Violar os Termos de Uso.</li>
+                <li>Utilizar o serviço para atividades fraudulentas ou ilegais.</li>
+                <li>Não realizar o pagamento da assinatura quando devida.</li>
+            </ul>
+            <p>Nesses casos, não haverá reembolso de valores pagos.</p>
+            
+            <h2>8. Contato para Cancelamento</h2>
+            <p>Para solicitar cancelamento ou tirar dúvidas:</p>
+            <p><strong>E-mail:</strong> hcdtec.mylife@gmail.com</p>
+            <p><strong>WhatsApp:</strong> (31) 98323-8087</p>
+            <p><strong>Assunto:</strong> "Cancelamento de Assinatura" + seu e-mail cadastrado</p>
+            
+            <div class="info-box">
+                <strong>📌 Informe no e-mail:</strong> Nome completo, e-mail cadastrado e motivo do cancelamento (opcional).
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="javascript:history.back()" class="btn-back">← Voltar</a>
+            </div>
+        </div>
+        
+        <div class="last-updated">
+            <p>© 2026 My Life - HCDtec. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

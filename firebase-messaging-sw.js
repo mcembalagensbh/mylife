@@ -3,12 +3,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-    apiKey: "VOCÊ_PEGA_NO_FIREBASE",
-    authDomain: "mylife-app.firebaseapp.com",
-    projectId: "mylife-app",
-    storageBucket: "mylife-app.firebasestorage.app",
-    messagingSenderId: "VOCÊ_PEGA_NO_FIREBASE",
-    appId: "VOCÊ_PEGA_NO_FIREBASE"
+    apiKey: "AIzaSyA_HVXemcOOATH31HPh340C-676UPtVtbk",
+    authDomain: "mylife-app-99a2a.firebaseapp.com",
+    projectId: "mylife-app-99a2a",
+    storageBucket: "mylife-app-99a2a.firebasestorage.app",
+    messagingSenderId: "666460169027",
+    appId: "1:666460169027:web:735c9e183f3d97dc00c5f6"
 };
 
 firebase.initializeApp(firebaseConfig);

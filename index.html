@@ -3815,7 +3815,43 @@ let aguardandoPrimeiroAcesso = true;
 function mostrarAnuncioDemo() {
     ultimoAnuncioExibido = new Date();
     
-    // Verificar se é PWA/web
+    // 🔴 VERIFICAR SE ESTÁ NO CORDOVA (APP ANDROID)
+    if (window.cordova && window.AdMob) {
+        console.log('📱 Exibindo anúncio AdMob no Cordova');
+        
+        // Preparar o anúncio intersticial
+        window.AdMob.prepareInterstitial({
+            adId: 'ca-app-pub-6358781011351368/6198712498',  // Seu Ad Unit ID
+            autoShow: true
+        });
+        
+        // Evento quando o anúncio é carregado
+        window.AdMob.on('admob.interstitial.events.LOAD', () => {
+            console.log('✅ Anúncio carregado');
+            window.AdMob.showInterstitial();
+        });
+        
+        // Evento quando o anúncio é fechado
+        window.AdMob.on('admob.interstitial.events.CLOSE', () => {
+            console.log('🔚 Anúncio fechado');
+        });
+        
+        // Evento em caso de erro
+        window.AdMob.on('admob.interstitial.events.ERROR', (error) => {
+            console.error('❌ Erro no anúncio:', error);
+            // Fallback: mostra versão demo se o anúncio falhar
+            mostrarAnuncioDemoFallback();
+        });
+        
+    } else {
+        // 🔴 FALLBACK PARA TESTES (navegador ou sem plugin)
+        console.log('🌐 Ambiente web - usando fallback');
+        mostrarAnuncioDemoFallback();
+    }
+}
+
+// 🔴 VERSÃO DE FALLBACK PARA TESTES (quando não está no Cordova)
+function mostrarAnuncioDemoFallback() {
     const modalAnuncio = document.createElement('div');
     modalAnuncio.id = 'modalAnuncio';
     modalAnuncio.style.cssText = `
@@ -3833,87 +3869,70 @@ function mostrarAnuncioDemo() {
         animation: fadeIn 0.3s ease;
     `;
     
-    // Container do anúncio
-    const adContainer = document.createElement('div');
-    adContainer.style.cssText = `
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        max-width: 350px;
-        width: 90%;
-        text-align: center;
-        padding: 20px;
-    `;
-    
-    adContainer.innerHTML = `
-        <div style="margin-bottom: 15px;">
-            <i class="fas fa-ad" style="font-size: 32px; color: #667eea;"></i>
-            <h3 style="margin: 10px 0;">Anúncio</h3>
-        </div>
-        <div id="admob-ad-container" style="min-height: 250px; display: flex; align-items: center; justify-content: center;">
-            <div class="loading-spinner" style="display: flex; flex-direction: column; align-items: center;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i>
-                <span style="font-size: 12px; margin-top: 8px;">Carregando anúncio...</span>
+    modalAnuncio.innerHTML = `
+        <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px; border-radius: 20px; text-align: center; max-width: 320px; width: 90%;">
+            <i class="fas fa-crown" style="font-size: 48px; color: #ffd700; margin-bottom: 15px;"></i>
+            <h3 style="color: white; margin-bottom: 10px;">My Life Premium</h3>
+            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 20px;">
+                Organize sua vida sem anúncios!<br>
+                Controle financeiro, eventos, tarefas e muito mais!
+            </p>
+            
+            <div style="background: rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                <div style="font-size: 24px; font-weight: 700; color: #ffd700;">R$ 17,90/mês</div>
+                <div style="font-size: 12px; color: white;">ou R$ 189,90/ano</div>
             </div>
-        </div>
-        <div style="margin-top: 20px;">
-            <button id="fecharAnuncioBtn" disabled style="
-                padding: 10px 20px;
-                background: #ccc;
-                color: white;
-                border: none;
-                border-radius: 30px;
-                cursor: not-allowed;
-                font-weight: 600;
-                opacity: 0.6;
-            ">
-                Aguarde...
-            </button>
-            <p style="font-size: 11px; color: #999; margin-top: 10px;" id="contadorAnuncio">
-                Anúncio disponível em 5 segundos
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="fecharAnuncioEAbrirPremium()" style="padding: 12px; background: #ffd700; border: none; border-radius: 30px; font-weight: 600; color: #667eea; cursor: pointer;">
+                    <i class="fas fa-crown"></i> ASSINAR PREMIUM (sem anúncios)
+                </button>
+                <button onclick="fecharAnuncio()" style="padding: 10px; background: transparent; border: 1px solid white; border-radius: 30px; color: white; cursor: pointer;">
+                    Continuar no plano Grátis
+                </button>
+            </div>
+            
+            <p style="font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 15px;">
+                O anúncio fecha em <span id="contadorAnuncio">5</span> segundos
             </p>
         </div>
+        
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        </style>
     `;
     
-    modalAnuncio.appendChild(adContainer);
     document.body.appendChild(modalAnuncio);
     
-    // Simular carregamento do anúncio (para PWA, você precisa de uma solução de terceiros)
+    // Contador regressivo
     let segundos = 5;
     const contadorSpan = document.getElementById('contadorAnuncio');
-    const btnFechar = document.getElementById('fecharAnuncioBtn');
-    
     const intervaloContador = setInterval(() => {
         segundos--;
-        if (contadorSpan) {
-            if (segundos > 0) {
-                contadorSpan.innerHTML = `Anúncio disponível em ${segundos} segundos`;
-            } else {
-                contadorSpan.innerHTML = `✅ Anúncio finalizado! Clique em "Fechar"`;
-                if (btnFechar) {
-                    btnFechar.disabled = false;
-                    btnFechar.style.background = '#667eea';
-                    btnFechar.style.cursor = 'pointer';
-                    btnFechar.style.opacity = '1';
-                    btnFechar.innerHTML = 'Fechar';
-                }
-            }
-        }
+        if (contadorSpan) contadorSpan.textContent = segundos;
         if (segundos <= 0) {
             clearInterval(intervaloContador);
+            // Não fecha automaticamente, espera o usuário clicar
         }
     }, 1000);
-    
-    // Evento de fechar
-    document.getElementById('fecharAnuncioBtn').onclick = () => {
-        if (segundos > 0) {
-            showToast('Aguarde o anúncio finalizar!', 'warning');
-            return;
-        }
-        const modal = document.getElementById('modalAnuncio');
-        if (modal) modal.remove();
-    };
 }
+
+// 🔴 FUNÇÃO PARA FECHAR O ANÚNCIO
+window.fecharAnuncio = function() {
+    const modal = document.getElementById('modalAnuncio');
+    if (modal) modal.remove();
+};
+
+// 🔴 FUNÇÃO PARA FECHAR ANÚNCIO E ABRIR PREMIUM
+window.fecharAnuncioEAbrirPremium = function() {
+    fecharAnuncio();
+    if (typeof abrirModalAssinatura === 'function') {
+        abrirModalAssinatura();
+    }
+};
 
 function fecharAnuncio() {
     const modal = document.getElementById('modalAnuncio');

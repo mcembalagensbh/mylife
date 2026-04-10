@@ -3815,33 +3815,31 @@ let aguardandoPrimeiroAcesso = true;
 function mostrarAnuncioDemo() {
     ultimoAnuncioExibido = new Date();
     
-    // Verificar se está no Cordova
-    if (window.cordova && window.admob) {
-        console.log('📱 Exibindo anúncio AdMob Plus');
+    // Verificar se está no Cordova com o plugin correto
+    if (window.cordova && window.AdMobSimple) {
+        console.log('📱 Exibindo anúncio com cordova-plugin-admob-simple');
         
-        // Inicializar o AdMob
-        window.admob.start().then(() => {
-            // Criar e mostrar anúncio intersticial
-            const interstitial = new window.admob.InterstitialAd({
-                adUnitId: 'ca-app-pub-6358781011351368/6198712498'
-            });
-            
-            // Carregar o anúncio
-            interstitial.load().then(() => {
-                console.log('✅ Anúncio carregado');
-                // Mostrar o anúncio
-                interstitial.show();
-            }).catch(error => {
-                console.error('❌ Erro ao carregar anúncio:', error);
-                mostrarAnuncioDemoFallback();
-            });
-            
-            // Evento quando o anúncio é fechado
-            interstitial.on('dismiss', () => {
-                console.log('🔚 Anúncio fechado');
-            });
-        }).catch(error => {
-            console.error('❌ Erro ao iniciar AdMob:', error);
+        // Preparar e mostrar anúncio intersticial
+        window.AdMobSimple.prepareInterstitial({
+            adId: 'ca-app-pub-6358781011351368/6198712498',  // Seu Ad Unit ID
+            autoShow: true,
+            testing: true  // 🔴 MUDE PARA false QUANDO FOR PARA PRODUÇÃO
+        });
+        
+        // Evento quando o anúncio é carregado
+        window.AdMobSimple.onInterstitialLoad(() => {
+            console.log('✅ Anúncio carregado');
+            window.AdMobSimple.showInterstitial();
+        });
+        
+        // Evento quando o anúncio é fechado
+        window.AdMobSimple.onInterstitialDismiss(() => {
+            console.log('🔚 Anúncio fechado');
+        });
+        
+        // Evento em caso de erro
+        window.AdMobSimple.onInterstitialFailedToLoad((error) => {
+            console.error('❌ Erro no anúncio:', error);
             mostrarAnuncioDemoFallback();
         });
         
@@ -3852,7 +3850,7 @@ function mostrarAnuncioDemo() {
     }
 }
 
-// Versão de fallback para testes
+// Versão de fallback para testes (web)
 function mostrarAnuncioDemoFallback() {
     const modalAnuncio = document.createElement('div');
     modalAnuncio.id = 'modalAnuncio';
@@ -3932,8 +3930,6 @@ window.fecharAnuncioEAbrirPremium = function() {
     }
 };
 
-
-
 async function mostrarAnuncioInterstitial() {
     // 🔴 VERIFICAR SE É PLANO GRÁTIS
     const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
@@ -3964,12 +3960,11 @@ async function mostrarAnuncioInterstitial() {
         }
     }
     
-    // Verificar se é ambiente mobile (Cordova/Capacitor) ou web
+    // Verificar se é ambiente mobile (Cordova) ou web
     const isMobileApp = window.cordova || window.Capacitor;
     
     if (isMobileApp) {
         console.log('📱 App mobile - Anúncio interstitial do AdMob será exibido');
-        // Código futuro do AdMob aqui
         mostrarAnuncioDemo();
     } else {
         mostrarAnuncioDemo();
@@ -3988,7 +3983,6 @@ async function verificarEMostrarAnuncioLogin() {
         }
     }, 1500);
 }
-
 
 
 

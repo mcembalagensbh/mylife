@@ -12021,6 +12021,8 @@ async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes
 
 
     function selecionarExclusao(tipo, id, tipoItem, isRecorrente, regraId, dia, mes, ano, isIndividual, individualId) {
+    console.log('🔵 selecionarExclusao chamada:', { tipo, id, tipoItem, isRecorrente, regraId, dia, mes, ano, isIndividual, individualId });
+    
     (async () => {
         try {
             if (tipo === 'unica') {

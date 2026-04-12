@@ -16611,65 +16611,57 @@ async function sincronizarGoogleParaMyLife() {
         }
     }
     
-    let calendarId = googleToken.calendar_id;
+    // 🔴 CORREÇÃO: Buscar o calendário "My Life" e USAR ele diretamente
+    let calendarId = null;
     
-    if (!calendarId || calendarId === 'null' || calendarId === 'undefined' || calendarId.includes('@group')) {
-        console.log('🔍 Calendar ID inválido, buscando da lista...');
+    console.log('🔍 Buscando calendário "My Life"...');
+    
+    try {
+        const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
         
-        try {
-            const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
+        const calendarsList = await listResponse.json();
+        const myLifeCalendar = calendarsList.items?.find(c => c.summary === 'My Life');
+        
+        if (myLifeCalendar) {
+            calendarId = myLifeCalendar.id;
+            console.log('✅ Calendário "My Life" encontrado e será USADO:', calendarId);
+        } else {
+            console.log('📅 Calendário "My Life" não encontrado, criando...');
+            
+            const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    summary: 'My Life',
+                    description: 'Eventos sincronizados do My Life',
+                    timeZone: 'America/Sao_Paulo'
+                })
             });
             
-            const calendarsList = await listResponse.json();
-            const myLifeCalendar = calendarsList.items?.find(c => c.summary === 'My Life');
+            const newCalendar = await createResponse.json();
             
-            if (myLifeCalendar) {
-                calendarId = myLifeCalendar.id;
-                console.log('✅ Calendário "My Life" encontrado:', calendarId);
-                
-                await supabaseClient
-                    .from('google_tokens')
-                    .update({ calendar_id: calendarId })
-                    .eq('user_id', userId);
+            if (createResponse.ok) {
+                calendarId = newCalendar.id;
+                console.log('✅ Calendário "My Life" criado:', calendarId);
             } else {
-                const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        summary: 'My Life',
-                        description: 'Eventos sincronizados do My Life',
-                        timeZone: 'America/Sao_Paulo'
-                    })
-                });
-                
-                const newCalendar = await createResponse.json();
-                
-                if (createResponse.ok) {
-                    calendarId = newCalendar.id;
-                    console.log('✅ Calendário criado:', calendarId);
-                    
-                    await supabaseClient
-                        .from('google_tokens')
-                        .update({ calendar_id: calendarId })
-                        .eq('user_id', userId);
-                } else {
-                    calendarId = 'primary';
-                    console.log('⚠️ Usando calendário primary como fallback');
-                }
+                calendarId = 'primary';
+                console.log('⚠️ Usando calendário primary como fallback');
             }
-        } catch (error) {
-            console.error('❌ Erro ao buscar calendários:', error);
-            calendarId = 'primary';
         }
+    } catch (error) {
+        console.error('❌ Erro ao buscar calendários:', error);
+        calendarId = 'primary';
+        console.log('⚠️ Usando calendário primary como fallback');
     }
     
-    if (!calendarId || calendarId.includes('@group')) {
+    if (!calendarId) {
         calendarId = 'primary';
-        console.log('⚠️ Calendar ID inválido, usando primary');
+        console.log('⚠️ Usando calendário primary');
     }
     
     console.log(`🔄 Buscando eventos do Google Calendar: ${calendarId}`);
@@ -16709,11 +16701,6 @@ async function sincronizarGoogleParaMyLife() {
             
             if (primaryResponse.ok) {
                 console.log('✅ Usando calendário primary com sucesso');
-                await supabaseClient
-                    .from('google_tokens')
-                    .update({ calendar_id: 'primary' })
-                    .eq('user_id', userId);
-                
                 const eventsData = await primaryResponse.json();
                 const items = eventsData.items || [];
                 console.log(`📊 Encontrados ${items.length} eventos no Google`);
@@ -16803,7 +16790,7 @@ async function sincronizarGoogleParaMyLife() {
         const eventsData = await eventsResponse.json();
         const items = eventsData.items || [];
         
-        console.log(`📊 Encontrados ${items.length} eventos no Google`);
+        console.log(`📊 Encontrados ${items.length} eventos no Google Calendar: ${calendarId}`);
         
         let criados = 0;
         
@@ -16811,7 +16798,10 @@ async function sincronizarGoogleParaMyLife() {
             const description = item.description || '';
             const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
             
-            if (myLifeIdMatch) continue;
+            if (myLifeIdMatch) {
+                console.log(`⏭️ Evento "${item.summary}" já tem ID My Life, ignorando`);
+                continue;
+            }
             
             let titulo = item.summary || 'Sem título';
             titulo = titulo.replace(/^📅 /, '').replace(/^💰 /, '').replace(/^.*\[TAREFA\] /, '');
@@ -16836,6 +16826,7 @@ async function sincronizarGoogleParaMyLife() {
             const mes = dataInicio.getMonth() + 1;
             const dia = dataInicio.getDate();
             
+            // Verificar se já existe no banco (evitar duplicatas)
             const { data: existente } = await supabaseClient
                 .from('eventos')
                 .select('id')
@@ -16846,7 +16837,10 @@ async function sincronizarGoogleParaMyLife() {
                 .eq('ano', ano)
                 .maybeSingle();
             
-            if (existente) continue;
+            if (existente) {
+                console.log(`⏭️ Evento "${titulo}" já existe no My Life, ignorando`);
+                continue;
+            }
             
             console.log(`➕ Criando evento: "${titulo}" - ${dia}/${mes}/${ano} ${hora}`);
             
@@ -16868,11 +16862,12 @@ async function sincronizarGoogleParaMyLife() {
                 .select();
             
             if (insertError) {
-                console.error(`❌ Erro:`, insertError);
+                console.error(`❌ Erro ao inserir:`, insertError);
             } else {
                 criados++;
                 console.log(`✅ Evento criado ID: ${insertData[0].id}`);
                 
+                // Atualizar o Google com o ID do My Life
                 try {
                     await fetch(
                         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${item.id}`,

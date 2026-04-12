@@ -17633,7 +17633,7 @@ function forcarAtualizacaoGoogleCalendar() {
 
 let intervaloPollingGoogle = null;
 
-async function sincronizarGoogleParaMyLife() {
+async function sincronizarGoogleParaMyLife() { 
     const supabaseClient = App.supabase;
     const userId = App.currentUser?.id;
     
@@ -18110,90 +18110,10 @@ async function forcarSincronizacaoCompleta() {
 
 
 
-// ============================================
-// INICIAR POLLING DO GOOGLE CALENDAR
-// ============================================
-
-let intervaloPollingGoogle = null;
-
-function iniciarPollingGoogle() {
-    // Parar polling existente
-    if (intervaloPollingGoogle) {
-        clearInterval(intervaloPollingGoogle);
-        intervaloPollingGoogle = null;
-        console.log('⏹️ Polling anterior parado');
-    }
-    
-    (async () => {
-        if (!App.currentUser) {
-            console.log('⏸️ Polling aguardando login...');
-            return;
-        }
-        
-        // Verificar se Google está conectado
-        const { data: googleToken, error } = await App.supabase
-            .from('google_tokens')
-            .select('*')
-            .eq('user_id', App.currentUser.id)
-            .maybeSingle();
-        
-        if (error || !googleToken) {
-            console.log('⏸️ Polling desativado - Google não conectado');
-            return;
-        }
-        
-        console.log('✅ Google conectado - iniciando polling (a cada 30 segundos)');
-        
-        // Primeira execução após 2 segundos
-        setTimeout(() => {
-            console.log('🔄 [Polling] Primeira verificação...');
-            sincronizarGoogleParaMyLife();
-        }, 2000);
-        
-        // Executar a cada 30 segundos
-        intervaloPollingGoogle = setInterval(() => {
-            console.log('🔄 [Polling] Verificando eventos do Google Calendar...');
-            sincronizarGoogleParaMyLife();
-        }, 30000);
-        
-    })();
-}
-
-function pararPollingGoogle() {
-    if (intervaloPollingGoogle) {
-        clearInterval(intervaloPollingGoogle);
-        intervaloPollingGoogle = null;
-        console.log('⏹️ Polling do Google Calendar parado');
-    }
-}
 
 
 
 
-
-
-// ============================================
-// FORÇAR BUSCA DE EVENTOS DO GOOGLE AGORA
-// ============================================
-
-async function forcarBuscaGoogle() {
-    if (!App.currentUser) {
-        showToast('Você precisa estar logado', 'warning');
-        return;
-    }
-    
-    showToast('🔄 Buscando eventos do Google Calendar...', 'info');
-    console.log('🔍 Forçando busca manual de eventos do Google...');
-    
-    await sincronizarGoogleParaMyLife();
-    
-    showToast('✅ Busca concluída! Verifique seus eventos.', 'success');
-}
-
-
-// ============================================
-// FORÇAR ATUALIZAÇÃO VISUAL DO GOOGLE CALENDAR
-// ============================================
 
 // ============================================
 // FORÇAR ATUALIZAÇÃO VISUAL DO GOOGLE CALENDAR (WEB E MOBILE)
@@ -18445,6 +18365,101 @@ function abrirPaginaModal(titulo, icone, url) {
     
     console.log('✅ Swipe no calendário ativado (efeito simples)');
 })();
+
+
+
+
+
+// ============================================
+// FUNÇÕES DE POLLING DO GOOGLE CALENDAR
+// ============================================
+
+let intervaloPollingGoogle = null;
+
+function iniciarPollingGoogle() {
+    // Parar polling existente
+    if (intervaloPollingGoogle) {
+        clearInterval(intervaloPollingGoogle);
+        intervaloPollingGoogle = null;
+        console.log('⏹️ Polling anterior parado');
+    }
+    
+    (async () => {
+        if (!App.currentUser) {
+            console.log('⏸️ Polling aguardando login...');
+            return;
+        }
+        
+        // Verificar se Google está conectado
+        const { data: googleToken, error } = await App.supabase
+            .from('google_tokens')
+            .select('*')
+            .eq('user_id', App.currentUser.id)
+            .maybeSingle();
+        
+        if (error || !googleToken) {
+            console.log('⏸️ Polling desativado - Google não conectado');
+            return;
+        }
+        
+        console.log('✅ Google conectado - iniciando polling (a cada 30 segundos)');
+        
+        // Primeira execução após 2 segundos
+        setTimeout(() => {
+            console.log('🔄 [Polling] Primeira verificação...');
+            if (typeof sincronizarGoogleParaMyLife === 'function') {
+                sincronizarGoogleParaMyLife();
+            } else {
+                console.log('❌ sincronizarGoogleParaMyLife não está definida');
+            }
+        }, 2000);
+        
+        // Executar a cada 30 segundos
+        intervaloPollingGoogle = setInterval(() => {
+            console.log('🔄 [Polling] Verificando eventos do Google Calendar...');
+            if (typeof sincronizarGoogleParaMyLife === 'function') {
+                sincronizarGoogleParaMyLife();
+            }
+        }, 30000);
+        
+    })();
+}
+
+function pararPollingGoogle() {
+    if (intervaloPollingGoogle) {
+        clearInterval(intervaloPollingGoogle);
+        intervaloPollingGoogle = null;
+        console.log('⏹️ Polling do Google Calendar parado');
+    }
+}
+
+// ============================================
+// FORÇAR BUSCA DE EVENTOS DO GOOGLE AGORA
+// ============================================
+
+async function forcarBuscaGoogle() {
+    if (!App.currentUser) {
+        showToast('Você precisa estar logado', 'warning');
+        return;
+    }
+    
+    showToast('🔄 Buscando eventos do Google Calendar...', 'info');
+    console.log('🔍 Forçando busca manual de eventos do Google...');
+    
+    if (typeof sincronizarGoogleParaMyLife === 'function') {
+        await sincronizarGoogleParaMyLife();
+        showToast('✅ Busca concluída! Verifique seus eventos.', 'success');
+    } else {
+        console.error('❌ sincronizarGoogleParaMyLife não está definida');
+        showToast('Erro: Função de sincronização não encontrada', 'error');
+    }
+}
+
+// Tornar funções globais para debug
+window.iniciarPollingGoogle = iniciarPollingGoogle;
+window.pararPollingGoogle = pararPollingGoogle;
+window.forcarBuscaGoogle = forcarBuscaGoogle;
+
 
 
 

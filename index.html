@@ -18110,10 +18110,18 @@ async function forcarSincronizacaoCompleta() {
 
 
 
+// ============================================
+// INICIAR POLLING DO GOOGLE CALENDAR
+// ============================================
+
+let intervaloPollingGoogle = null;
+
 function iniciarPollingGoogle() {
+    // Parar polling existente
     if (intervaloPollingGoogle) {
         clearInterval(intervaloPollingGoogle);
         intervaloPollingGoogle = null;
+        console.log('⏹️ Polling anterior parado');
     }
     
     (async () => {
@@ -18122,24 +18130,31 @@ function iniciarPollingGoogle() {
             return;
         }
         
-        const { data: googleToken } = await App.supabase
+        // Verificar se Google está conectado
+        const { data: googleToken, error } = await App.supabase
             .from('google_tokens')
             .select('*')
             .eq('user_id', App.currentUser.id)
             .maybeSingle();
         
-        if (!googleToken) {
+        if (error || !googleToken) {
             console.log('⏸️ Polling desativado - Google não conectado');
             return;
         }
         
         console.log('✅ Google conectado - iniciando polling (a cada 30 segundos)');
         
-        setTimeout(() => sincronizarGoogleParaMyLife(), 2000);
-        
-        intervaloPollingGoogle = setInterval(() => {
+        // Primeira execução após 2 segundos
+        setTimeout(() => {
+            console.log('🔄 [Polling] Primeira verificação...');
             sincronizarGoogleParaMyLife();
-        }, 15000);
+        }, 2000);
+        
+        // Executar a cada 30 segundos
+        intervaloPollingGoogle = setInterval(() => {
+            console.log('🔄 [Polling] Verificando eventos do Google Calendar...');
+            sincronizarGoogleParaMyLife();
+        }, 30000);
         
     })();
 }
@@ -18150,6 +18165,29 @@ function pararPollingGoogle() {
         intervaloPollingGoogle = null;
         console.log('⏹️ Polling do Google Calendar parado');
     }
+}
+
+
+
+
+
+
+// ============================================
+// FORÇAR BUSCA DE EVENTOS DO GOOGLE AGORA
+// ============================================
+
+async function forcarBuscaGoogle() {
+    if (!App.currentUser) {
+        showToast('Você precisa estar logado', 'warning');
+        return;
+    }
+    
+    showToast('🔄 Buscando eventos do Google Calendar...', 'info');
+    console.log('🔍 Forçando busca manual de eventos do Google...');
+    
+    await sincronizarGoogleParaMyLife();
+    
+    showToast('✅ Busca concluída! Verifique seus eventos.', 'success');
 }
 
 

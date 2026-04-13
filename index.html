@@ -11266,6 +11266,50 @@ function garantirNomeUsuario(nome) {
     }
 
     try {
+        // Buscar o evento original para saber se veio do Google
+        const { data: eventoExistente } = await App.supabase
+            .from('eventos')
+            .select('id, google_event_id, added_by')
+            .eq('id', id)
+            .single();
+        
+        // 🔴 SE VEIO DO GOOGLE (tem google_event_id) → ATUALIZAR em vez de recriar
+        if (eventoExistente && eventoExistente.google_event_id) {
+            console.log('🔄 Evento veio do Google, atualizando em vez de recriar...');
+            
+            // Atualizar o evento no banco local
+            const { error: updateError } = await App.supabase
+                .from('eventos')
+                .update({
+                    titulo: titulo,
+                    descricao: desc || '',
+                    local: local,
+                    hora: hora,
+                    dia: dia,
+                    mes: mes,
+                    ano: ano,
+                    icone: icone,
+                    cor_icone: corIcone,
+                    data_inicio: dataInicioStr,
+                    data_fim: dataFimStr
+                })
+                .eq('id', id);
+            
+            if (updateError) throw updateError;
+            
+            showToast('Evento atualizado!', 'success');
+            
+            // Sincronizar com Google (vai atualizar o evento existente)
+            await sincronizarGoogleAutomatico();
+            
+            fecharModal();
+            await carregarDados(true);
+            await atualizarCalendario();
+            await mostrarConteudo();
+            return;
+        }
+        
+        // 🔴 CÓDIGO ORIGINAL PARA EVENTOS NORMAIS (não vieram do Google)
         if (isRecorrente && regraId) {
             await App.supabase.from('regras_eventos').update({
                 titulo_base: titulo,
@@ -11299,38 +11343,7 @@ function garantirNomeUsuario(nome) {
                 added_by: nomeUsuario
             });
         } else {
-            // 🔴 VERIFICAR SE O EVENTO VEIO DO GOOGLE
-            const { data: eventoExistente } = await App.supabase
-                .from('eventos')
-                .select('id, google_event_id, added_by')
-                .eq('id', id)
-                .single();
-            
-            // Se veio do Google, atualizar em vez de recriar
-            if (eventoExistente && eventoExistente.added_by === 'Google Calendar') {
-                await App.supabase
-                    .from('eventos')
-                    .update({
-                        titulo: titulo,
-                        descricao: desc || '',
-                        local: local,
-                        hora: hora,
-                        ano: ano,
-                        mes: mes,
-                        dia: dia
-                    })
-                    .eq('id', id);
-                
-                showToast('Evento atualizado!', 'success');
-                await sincronizarGoogleAutomatico();
-                fecharModal();
-                await carregarDados(true);
-                await atualizarCalendario();
-                await mostrarConteudo();
-                return;
-            }
-            
-            // 🔴 CÓDIGO ORIGINAL PARA EVENTOS NORMAIS
+            // Evento normal (não veio do Google)
             let eventoAntigo = null;
             
             if (App.dataCache && App.dataCache.eventos) {
@@ -11419,6 +11432,7 @@ function garantirNomeUsuario(nome) {
         await carregarDados(true);
         await atualizarCalendario();
         await mostrarConteudo();
+        
     } catch (error) {
         console.error('Erro ao editar evento:', error);
         showToast('Erro: ' + error.message, 'error');
@@ -18451,4 +18465,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 </body>
 </html>
 
-    156
+    157

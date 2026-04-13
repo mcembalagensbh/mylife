@@ -17949,6 +17949,9 @@ function calcularProximaDataEvento(regra, aPartirDe) {
 // ============================================
 
 async function sincronizarGoogleAutomatico() {
+    // 🔴 LOG PARA VERIFICAR SE ESTÁ SENDO CHAMADA
+    console.log('🔴🔴🔴 sincronizarGoogleAutomatico foi CHAMADA! 🔴🔴🔴');
+    
     // Executa em segundo plano sem travar a interface
     setTimeout(async () => {
         try {
@@ -17962,7 +17965,12 @@ async function sincronizarGoogleAutomatico() {
                 .eq('user_id', App.currentUser.id)
                 .maybeSingle();
             
-            if (!googleToken) return;
+            if (!googleToken) {
+                console.log('⚠️ Google não conectado, sincronização ignorada');
+                return;
+            }
+            
+            console.log('🔄 Sincronização automática em segundo plano...');
             
             // Buscar configurações atuais
             const configAtual = App.dataCache.configuracoesSync || {
@@ -18000,16 +18008,16 @@ async function sincronizarGoogleAutomatico() {
             if (response.ok && data.success) {
                 if (data.criados > 0 || data.atualizados > 0) {
                     console.log(`🔄 Sincronização automática: ${data.criados} criados, ${data.atualizados} atualizados`);
+                } else {
+                    console.log('🔄 Sincronização automática: nenhuma mudança');
                 }
             }
             
         } catch (error) {
-            // Apenas log de erro no console, sem atrapalhar o usuário
             console.error('Erro na sincronização automática (background):', error);
         }
-    }, 100); // Pequeno delay para não travar a UI
+    }, 100);
 }
-
 
 
 
@@ -18446,6 +18454,3 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-
-
-155

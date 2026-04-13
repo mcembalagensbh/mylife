@@ -11248,7 +11248,7 @@ function garantirNomeUsuario(nome) {
             fecharSeletorIconesEdit();
         }
 
-    async function salvarEdicaoEvento(id, isRecorrente, regraId, isIndividual, individualId, dia, mes, ano) {
+   async function salvarEdicaoEvento(id, isRecorrente, regraId, isIndividual, individualId, dia, mes, ano) {
     let titulo = document.getElementById('eventoTituloEdit')?.value.trim();
     let desc = document.getElementById('eventoDescricaoEdit')?.value.trim();
     let dataInicioStr = document.getElementById('eventoDataInicioEdit')?.value;
@@ -11266,20 +11266,21 @@ function garantirNomeUsuario(nome) {
     }
 
     try {
-        // Buscar o evento original para saber se veio do Google
+        // Buscar o evento original
         const { data: eventoExistente } = await App.supabase
             .from('eventos')
-            .select('id, google_event_id, added_by')
+            .select('*')
             .eq('id', id)
             .single();
         
-        console.log('🔍 Evento sendo editado:', { id, google_event_id: eventoExistente?.google_event_id, added_by: eventoExistente?.added_by });
+        console.log('🔍 Editando evento ID:', id);
+        console.log('Evento original:', eventoExistente);
         
-        // 🔴 SE VEIO DO GOOGLE (tem google_event_id) → ATUALIZAR em vez de recriar
+        // 🔴 SE VEIO DO GOOGLE (tem google_event_id) → ATUALIZAR
         if (eventoExistente && eventoExistente.google_event_id) {
-            console.log('🔄 Evento veio do Google, atualizando em vez de recriar...');
+            console.log('🔄 Evento veio do Google, ATUALIZANDO...');
             
-            // Atualizar o evento no banco local
+            // ATUALIZAR o evento existente (NÃO criar novo)
             const { error: updateError } = await App.supabase
                 .from('eventos')
                 .update({
@@ -11299,9 +11300,9 @@ function garantirNomeUsuario(nome) {
             
             if (updateError) throw updateError;
             
-            showToast('Evento atualizado!', 'success');
+            showToast('Evento atualizado no App!', 'success');
             
-            // Sincronizar com Google (vai atualizar o evento existente)
+            // Forçar sincronização para atualizar no Google
             await sincronizarGoogleAutomatico();
             
             fecharModal();
@@ -11311,121 +11312,31 @@ function garantirNomeUsuario(nome) {
             return;
         }
         
-        console.log('📝 Evento NÃO veio do Google, criando novo...');
+        // 🔴 SE NÃO VEIO DO GOOGLE (evento criado no App)
+        console.log('📝 Evento criado no App, recriando...');
         
-        // 🔴 CÓDIGO ORIGINAL PARA EVENTOS NORMAIS (não vieram do Google)
-        if (isRecorrente && regraId) {
-            await App.supabase.from('regras_eventos').update({
-                titulo_base: titulo,
-                descricao: desc || '',
-                hora: hora || null,
-                local: local || null,
-                icone: icone,
-                cor_icone: corIcone,
-                data_inicio: dataInicioStr,
-                data_fim: dataFimStr
-            }).eq('id', regraId);
-        } else if (isIndividual && individualId) {
-            await App.supabase.from('eventos_individuais').delete().eq('id', individualId);
-            
-            let dataInicio = new Date(dataInicioStr + 'T12:00:00');
-            await App.supabase.from('eventos_individuais').insert({
-                user_id: App.currentUser.id,
-                regra_id: regraId,
-                titulo: titulo,
-                descricao: desc || '',
-                dia: dataInicio.getDate(),
-                mes: dataInicio.getMonth() + 1,
-                ano: dataInicio.getFullYear(),
-                hora: hora || null,
-                local: local || null,
-                icone: icone,
-                cor_icone: corIcone,
-                data_original: dataInicioStr,
-                data_inicio: dataInicioStr,
-                data_fim: dataFimStr,
-                added_by: nomeUsuario
-            });
-        } else {
-            // Evento normal (não veio do Google)
-            let eventoAntigo = null;
-            
-            if (App.dataCache && App.dataCache.eventos) {
-                eventoAntigo = App.dataCache.eventos.find(e => e.id == id);
-            }
-            
-            if (eventoAntigo && eventoAntigo.data_inicio) {
-                if (eventoAntigo.data_fim) {
-                    await App.supabase
-                        .from('eventos')
-                        .delete()
-                        .eq('user_id', App.currentUser.id)
-                        .eq('data_inicio', eventoAntigo.data_inicio)
-                        .eq('data_fim', eventoAntigo.data_fim);
-                } else {
-                    await App.supabase
-                        .from('eventos')
-                        .delete()
-                        .eq('user_id', App.currentUser.id)
-                        .eq('data_inicio', eventoAntigo.data_inicio)
-                        .eq('data_fim', null);
-                }
-            } else {
-                await App.supabase
-                    .from('eventos')
-                    .delete()
-                    .eq('data_inicio', dataInicioStr)
-                    .eq('data_fim', dataFimStr);
-            }
-            
-            let dataInicio = new Date(dataInicioStr + 'T12:00:00');
-            let dataFim = dataFimStr ? new Date(dataFimStr + 'T12:00:00') : null;
-            
-            if (dataFim) {
-                let dataAtual = new Date(dataInicio);
-                while (dataAtual <= dataFim) {
-                    let anoAtual = dataAtual.getFullYear();
-                    let mesAtual = dataAtual.getMonth() + 1;
-                    let diaAtual = dataAtual.getDate();
-                    
-                    await App.supabase.from('eventos').insert({
-                        user_id: App.currentUser.id,
-                        titulo: titulo,
-                        descricao: desc || '',
-                        dia: diaAtual,
-                        mes: mesAtual,
-                        ano: anoAtual,
-                        hora: hora || null,
-                        local: local || null,
-                        icone: icone,
-                        cor_icone: corIcone,
-                        data_inicio: dataInicioStr,
-                        data_fim: dataFimStr,
-                        is_recorrente: false,
-                        added_by: nomeUsuario
-                    });
-                    
-                    dataAtual.setDate(dataAtual.getDate() + 1);
-                }
-            } else {
-                await App.supabase.from('eventos').insert({
-                    user_id: App.currentUser.id,
-                    titulo: titulo,
-                    descricao: desc || '',
-                    dia: dataInicio.getDate(),
-                    mes: dataInicio.getMonth() + 1,
-                    ano: dataInicio.getFullYear(),
-                    hora: hora || null,
-                    local: local || null,
-                    icone: icone,
-                    cor_icone: corIcone,
-                    data_inicio: dataInicioStr,
-                    data_fim: null,
-                    is_recorrente: false,
-                    added_by: nomeUsuario
-                });
-            }
-        }
+        // Deletar o antigo
+        await App.supabase.from('eventos').delete().eq('id', id);
+        
+        // Criar novo
+        let dataInicio = new Date(dataInicioStr + 'T12:00:00');
+        
+        await App.supabase.from('eventos').insert({
+            user_id: App.currentUser.id,
+            titulo: titulo,
+            descricao: desc || '',
+            dia: dia,
+            mes: mes,
+            ano: ano,
+            hora: hora || null,
+            local: local || null,
+            icone: icone,
+            cor_icone: corIcone,
+            data_inicio: dataInicioStr,
+            data_fim: dataFimStr,
+            is_recorrente: false,
+            added_by: nomeUsuario
+        });
 
         await registrarHistorico('edicao_evento', `Evento editado: ${titulo}`, { id, usuario: nomeUsuario });
         showToast('Evento atualizado!', 'success');
@@ -18469,4 +18380,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 </body>
 </html>
 
-    159
+    160

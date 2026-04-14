@@ -11374,7 +11374,7 @@ function garantirNomeUsuario(nome) {
     let desc = document.getElementById('eventoDescricaoEdit')?.value.trim();
     let dataInicioStr = document.getElementById('eventoDataInicioEdit')?.value;
     let dataFimStr = document.getElementById('eventoDataFimEdit')?.value || null;
-    let hora = document.getElementById('eventoHoraEdit')?.value || '';  // 🔴 PODE SER VAZIO
+    let hora = document.getElementById('eventoHoraEdit')?.value;
     let local = document.getElementById('eventoLocalEdit')?.value.trim();
     let icone = document.getElementById('eventoIconeEdit')?.value || 'fa-star';
     let corIcone = document.getElementById('eventoCorIconeEdit')?.value || '#ffd700';
@@ -11387,22 +11387,25 @@ function garantirNomeUsuario(nome) {
     }
 
     try {
+        // Buscar o evento original (para pegar o google_event_id)
         const { data: eventoExistente } = await App.supabase
             .from('eventos')
             .select('*')
             .eq('id', id)
             .single();
         
-        // 🔴 SE HORA ESTIVER VAZIA, USAR NULL (dia inteiro)
-        const horaFinal = (hora && hora !== '') ? hora : null;
+        console.log('🔍 Editando evento ID:', id);
+        console.log('Evento original:', eventoExistente);
+        console.log('Google ID atual:', eventoExistente?.google_event_id);
         
+        // 🔴 ATUALIZAR o evento existente (NÃO criar novo)
         const { error: updateError } = await App.supabase
             .from('eventos')
             .update({
                 titulo: titulo,
                 descricao: desc || '',
                 local: local,
-                hora: horaFinal,  // 🔴 PODE SER NULL
+                hora: (hora && hora !== '') ? hora : null,
                 dia: dia,
                 mes: mes,
                 ano: ano,
@@ -11415,8 +11418,10 @@ function garantirNomeUsuario(nome) {
         
         if (updateError) throw updateError;
         
+        console.log('✅ Evento atualizado no App, ID:', id);
         showToast('Evento atualizado!', 'success');
         
+        // 🔴 Forçar sincronização para atualizar no Google
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -18743,5 +18748,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 </body>
 </html>
 
-    199
-    
+    200

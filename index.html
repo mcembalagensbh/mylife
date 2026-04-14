@@ -1872,6 +1872,89 @@
             background: var(--purple);
             color: #fff;
         }
+
+
+/* NOVO LAYOUT DOS CARDS - SIMÉTRICO */
+.item-card .item-info {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.item-titulo-linha {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--purple);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.item-badges-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.item-badges-linha .item-badge,
+.item-badges-linha .usuario-badge {
+    display: inline-flex;
+}
+
+.item-valor-direita {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--purple);
+    margin-left: auto;
+}
+
+.item-data-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--gray);
+    width: 100%;
+}
+
+.item-botoes-direita {
+    display: flex;
+    gap: 4px;
+}
+
+.linha-termina {
+    font-size: 0.7rem;
+    color: var(--gray);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Ajuste para mobile */
+@media (max-width: 480px) {
+    .item-titulo-linha {
+        font-size: 12px;
+    }
+    .item-badges-linha {
+        font-size: 10px;
+    }
+    .item-data-linha {
+        font-size: 0.7rem;
+    }
+    .item-valor-direita {
+        font-size: 0.85rem;
+    }
+}
+
+
 .fa-eye, .fa-eye-slash {
     font-size: 16px;
     color: var(--gray);
@@ -2893,6 +2976,27 @@ document.addEventListener('DOMContentLoaded', function() {
         function stringParaData(str) {
             return new Date(str + 'T12:00:00');
         }
+
+
+
+function formatCurrency(valor) {
+    return 'R$ ' + (valor || 0).toFixed(2).replace('.', ',');
+}
+
+// 🔴 ADICIONAR AQUI
+function limitarTitulo(inputElement, maxLength = 30) {
+    if (inputElement) {
+        let valor = inputElement.value;
+        if (valor.length > maxLength) {
+            inputElement.value = valor.substring(0, maxLength);
+            showToast(`Título limitado a ${maxLength} caracteres`, 'warning');
+        }
+    }
+}
+
+function atualizarSaldoHeader() {
+    // ... resto do código
+}
 
 
 
@@ -5461,7 +5565,7 @@ function calcularUltimaDataEvento(regra) {
 
 
 
-     function renderizarItemCard(item, mes, ano) {
+    function renderizarItemCard(item, mes, ano) {
     if (!item) return '';
     let hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -5472,13 +5576,19 @@ function calcularUltimaDataEvento(regra) {
     let icone = 'fa-file-invoice-dollar';
     let botoes = '';
     
-    // 🔴 CORREÇÃO: GARANTIR QUE O NOME DO USUÁRIO SEJA STRING
+    // Garantir que o nome do usuário seja string
     let usuarioRaw = item.added_by || item.usuario || App.usuarioAtual || 'desconhecido';
     let usuario = (typeof usuarioRaw === 'object') 
         ? (usuarioRaw.apelido || usuarioRaw.nome || 'desconhecido') 
         : String(usuarioRaw);
-    let usuarioBadge = `<span class="usuario-badge">${usuario}</span>`;
-    let podeEditar = true;  // <--- ESTA É A LINHA CORRIGIDA
+    
+    // Limitar título a 30 caracteres
+    let tituloLimitado = (item.titulo || item.descricao || 'Sem título');
+    if (tituloLimitado.length > 30) {
+        tituloLimitado = tituloLimitado.substring(0, 30) + '...';
+    }
+    
+    let podeEditar = true;
 
     if (item.tipo === 'conta') {
         let venc = criarData(item.ano || ano, item.mes || mes, item.dia || item.dia_vencimento);
@@ -5492,7 +5602,12 @@ function calcularUltimaDataEvento(regra) {
 
         titulo = item.descricao || 'Conta sem descrição';
         
-        // 🔴 ADICIONAR INFORMAÇÃO DA ÚLTIMA DATA PARA CONTAS RECORRENTES (de forma discreta)
+        // Limitar título
+        if (titulo.length > 30) {
+            titulo = titulo.substring(0, 30) + '...';
+        }
+        
+        // Info de última data para contas recorrentes
         let infoUltimaData = '';
         if (item.isRecorrente && item.regra_id) {
             let regra = App.dataCache.regrasContas?.find(r => r.id == item.regra_id);
@@ -5500,22 +5615,22 @@ function calcularUltimaDataEvento(regra) {
                 let ultimaData = calcularUltimaDataConta(regra);
                 if (ultimaData) {
                     let dataFormatada = ultimaData.toLocaleDateString('pt-BR');
-                    infoUltimaData = `<span class="termina-em" style="font-size: 10px; color: #555; margin-left: 6px; display: inline-block; background: #f0f0f0; padding: 2px 6px; border-radius: 12px;">Termina: ${dataFormatada}</span>`;
-                } else {
-                    // Se for indeterminada, mostrar "(sem previsão de término)"
-                    infoUltimaData = `<span style="font-size: 10px; color: #888; margin-left: 6px;"></span>`;
+                    infoUltimaData = `<div class="linha-termina"><i class="fas fa-calendar-check"></i> Termina: ${dataFormatada}</div>`;
                 }
             }
         }
         
+        // Frequência (sem repetir em texto)
+        let frequenciaBadge = '';
         if (item.frequencia && item.frequencia !== 'unico') {
-            titulo += ` <span class="item-badge badge-recorrente">${item.frequencia}</span>`;
+            frequenciaBadge = `<span class="item-badge badge-recorrente">${item.frequencia}</span>`;
         }
-        
-        detalhes = `Vence ${item.dia || item.dia_vencimento} ${getNomeMes(item.mes || mes)}/${item.ano || ano} ${infoUltimaData}`;
         
         let valorExibicao = item.valor_pago > 0 ? item.valor_pago : (item.valor_original || item.valor || 0);
         valor = formatCurrency(valorExibicao);
+        
+        // Data de vencimento formatada
+        let dataVencimento = `${item.dia || item.dia_vencimento}/${item.mes || mes}/${item.ano || ano}`;
         
         if (podeEditar) {
             if (item.valor_pago > 0 || item.status === 'paga') {
@@ -5531,12 +5646,19 @@ function calcularUltimaDataEvento(regra) {
 
         return `<div class="item-card ${classe}" ${podeEditar ? '' : 'style="cursor:default"'}>
             <div class="item-info">
-                <div class="item-title"><i class="fas ${icone}"></i> ${titulo} ${usuarioBadge}</div>
-                <div class="item-details">${detalhes}</div>
-            </div>
-            <div class="item-value">${valor}</div>
-            <div class="item-actions">
-                ${botoes}
+                <div class="item-titulo-linha"><i class="fas ${icone}"></i> ${titulo}</div>
+                <div class="item-badges-linha">
+                    ${frequenciaBadge}
+                    <span class="usuario-badge">${usuario}</span>
+                    <span class="item-valor-direita">${valor}</span>
+                </div>
+                <div class="item-data-linha">
+                    <span><i class="fas fa-calendar-alt"></i> Vence: ${dataVencimento}</span>
+                    <div class="item-botoes-direita">
+                        ${botoes}
+                    </div>
+                </div>
+                ${infoUltimaData}
             </div>
         </div>`;
         
@@ -5547,7 +5669,12 @@ function calcularUltimaDataEvento(regra) {
         let corIcone = item.cor_icone || '#ffd700';
         titulo = item.titulo || 'Evento sem título';
         
-        // 🔴 ADICIONAR INFORMAÇÃO DA ÚLTIMA DATA PARA EVENTOS RECORRENTES (de forma discreta)
+        // Limitar título
+        if (titulo.length > 30) {
+            titulo = titulo.substring(0, 30) + '...';
+        }
+        
+        // Info de última data para eventos recorrentes
         let infoUltimaDataEvento = '';
         if (item.isRecorrente && item.regra_id) {
             let regra = App.dataCache.regrasEventos?.find(r => r.id == item.regra_id);
@@ -5555,21 +5682,21 @@ function calcularUltimaDataEvento(regra) {
                 let ultimaData = calcularUltimaDataEvento(regra);
                 if (ultimaData) {
                     let dataFormatada = ultimaData.toLocaleDateString('pt-BR');
-                    infoUltimaDataEvento = `<span style="font-size: 10px; color: #888; margin-left: 6px;">(Termina em: ${dataFormatada})</span>`;
-                } else {
-                    infoUltimaDataEvento = `<span style="font-size: 10px; color: #888; margin-left: 6px;"></span>`; 
+                    infoUltimaDataEvento = `<div class="linha-termina"><i class="fas fa-calendar-check"></i> Termina: ${dataFormatada}</div>`;
                 }
             }
         }
         
+        // Frequência
+        let frequenciaBadge = '';
         if (item.frequencia && item.frequencia !== 'unico') {
-            titulo += ` <span class="item-badge badge-recorrente">${item.frequencia}</span>`;
+            frequenciaBadge = `<span class="item-badge badge-recorrente">${item.frequencia}</span>`;
         }
-        detalhes = `${item.dia} ${getNomeMes(item.mes)}/${item.ano}`;
-        if (item.hora) detalhes += ` | ${item.hora}`;
-        if (item.local) detalhes += ` | ${item.local}`;
-        detalhes += infoUltimaDataEvento;
-
+        
+        // Data do evento
+        let dataEvento = `${item.dia}/${item.mes}/${item.ano}`;
+        if (item.hora) dataEvento += ` às ${item.hora}`;
+        
         if (podeEditar) {
             botoes = `
                 <button class="action-btn edit" onclick="event.stopPropagation();verificarEAcaoEdicao(() => editarItem('${item.id}','${item.tipo}',${item.isRecorrente || false},'${item.regra_id || ''}',${item.isIndividual || false},'${item.individual_id || ''}',${item.dia},${item.mes},${item.ano}))"><i class="fas fa-edit"></i></button>
@@ -5579,15 +5706,27 @@ function calcularUltimaDataEvento(regra) {
 
         return `<div class="item-card ${classe}" ${podeEditar ? '' : 'style="cursor:default"'}>
             <div class="item-info">
-                <div class="item-title"><span class="event-emoji"><i class="fas ${iconeEvento}" style="color:${corIcone}"></i></span> ${titulo} ${usuarioBadge}</div>
-                <div class="item-details">${detalhes}</div>
-            </div>
-            <div class="item-actions">
-                ${botoes}
+                <div class="item-titulo-linha">
+                    <span class="event-emoji"><i class="fas ${iconeEvento}" style="color:${corIcone}"></i></span> ${titulo}
+                </div>
+                <div class="item-badges-linha">
+                    ${frequenciaBadge}
+                    <span class="usuario-badge">${usuario}</span>
+                </div>
+                <div class="item-data-linha">
+                    <span><i class="fas fa-calendar-alt"></i> ${dataEvento}</span>
+                    <div class="item-botoes-direita">
+                        ${botoes}
+                    </div>
+                </div>
+                ${infoUltimaDataEvento}
             </div>
         </div>`;
     }
 }
+
+
+
 
         async function renderizarGastos(content, mes, ano) {
     let gastosMes = App.dataCache.gastos.filter(g => g.mes === mes && g.ano === ano);

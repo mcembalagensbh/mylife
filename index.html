@@ -4539,8 +4539,9 @@ function esconderLoading() {
 
 // Modifique a função mostrarConteudo para usar o novo loading
 async function mostrarConteudo() {
-     console.log('🔵 mostrarConteudo iniciado, filter:', App.currentFilter);
-    mostrarLoading('Atualizando edições...');
+    // mostrarLoading removido - silencioso
+    document.getElementById('contentArea').style.display = 'none';
+    await carregarDados(false);
     
     document.getElementById('contentArea').style.display = 'none';
     await carregarDados(false);
@@ -5146,7 +5147,8 @@ function atualizarEmailMenu() {
         return;
     }
     
-    document.getElementById('loadingState').style.display = 'block';
+    // 🔴 LOADING REMOVIDO - sincronização silenciosa
+    // document.getElementById('loadingState').style.display = 'block';
     
     // Se estiver online, carregar do servidor
     if (App.isOnline) {
@@ -5245,11 +5247,10 @@ function atualizarEmailMenu() {
             atualizarTarefaBadge();
             atualizarSaldoHeader();
             
-            // 🔴 ATUALIZAR O NOME DO GRUPO NO CABEÇALHO DO CALENDÁRIO
+            // Atualizar o nome do grupo no cabeçalho do calendário
             if (usuariosFamilia && usuariosFamilia.length > 0 && usuariosFamilia[0].nome_grupo) {
                 atualizarNomeGrupoHeader(usuariosFamilia[0].nome_grupo);
             } else {
-                // Verificar se tem nome salvo no localStorage
                 if (App.currentUser) {
                     const saved = localStorage.getItem(`mylife_nome_grupo_${App.currentUser.id}`);
                     if (saved) {
@@ -5258,15 +5259,15 @@ function atualizarEmailMenu() {
                 }
             }
             
-            document.getElementById('loadingState').style.display = 'none';
+            // 🔴 LOADING REMOVIDO - sem mensagem
+            // document.getElementById('loadingState').style.display = 'none';
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
-            showToast('Erro ao carregar dados', 'error');
-            document.getElementById('loadingState').style.display = 'none';
+            // Sem showToast para não incomodar
+            // document.getElementById('loadingState').style.display = 'none';
         }
     } else {
         console.log('📡 Modo offline - usando cache local');
-        document.getElementById('loadingState').style.display = 'none';
         if (!App.cacheLoaded) {
             showToast('📡 Você está offline e não há dados em cache. Conecte-se à internet.', 'warning');
         }
@@ -5438,7 +5439,7 @@ function atualizarTarefaBadge() {
         }
 
         async function mostrarConteudo() {
-    mostrarLoading('Atualizando edições...');
+    console.log('🔵 mostrarConteudo iniciado, filter:', App.currentFilter);
     
     document.getElementById('contentArea').style.display = 'none';
     await carregarDados(false);
@@ -5447,26 +5448,26 @@ function atualizarTarefaBadge() {
     let content = document.getElementById('dynamicContent');
     let diaText = App.selectedDay ? ` - Dia ${App.selectedDay}` : '';
 
+    // 🔴 FILTERINFO CORRIGIDO - sem "Atualizando edições"
     document.getElementById('filterInfo').innerHTML = `<i class="fas fa-calendar-alt"></i> ${getNomeMes(mes)}/${ano}${diaText} | <strong>${Object.entries(App.activeFilters).filter(([k, v]) => v).map(([k]) => k).join(', ') || 'Nenhum'}</strong>`;
 
-                try {
-                console.log('🔵 Verificando filter:', App.currentFilter);
-                if (App.currentFilter === 'saldos') await renderizarSaldos(content);
-                else if (App.currentFilter === 'lista') await renderizarLista(content);
-                else if (App.currentFilter === 'gastos') await renderizarGastos(content, mes, ano);
-                else if (App.currentFilter === 'giros') await renderizarGiros(content);
-                else if (App.currentFilter === 'notas') await renderizarNotas(content);
-                else if (App.currentFilter === 'tarefas') {
-                    console.log('🔵 CHAMANDO renderizarTarefas');
-                    await renderizarTarefas(content);
-                }
-                else await renderizarTudo(content, mes, ano);
-            } catch (error) {
+    try {
+        console.log('🔵 currentFilter:', App.currentFilter);
+        if (App.currentFilter === 'saldos') await renderizarSaldos(content);
+        else if (App.currentFilter === 'lista') await renderizarLista(content);
+        else if (App.currentFilter === 'gastos') await renderizarGastos(content, mes, ano);
+        else if (App.currentFilter === 'giros') await renderizarGiros(content);
+        else if (App.currentFilter === 'notas') await renderizarNotas(content);
+        else if (App.currentFilter === 'tarefas') {
+            console.log('🔵 CHAMANDO renderizarTarefas');
+            await renderizarTarefas(content);
+        }
+        else await renderizarTudo(content, mes, ano);
+    } catch (error) {
         console.error(error);
         content.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><p>Erro ao carregar dados</p></div>';
     }
 
-    esconderLoading();
     document.getElementById('contentArea').style.display = 'block';
     configurarBotoesBalanco();
 }
@@ -16767,7 +16768,6 @@ async function sincronizarGoogleParaMyLife() {
             const mes = dataInicio.getMonth() + 1;
             const dia = dataInicio.getDate();
             
-            // 🔴 SE TEM ID MY LIFE → ATUALIZAR o evento existente
             if (myLifeIdMatch) {
                 const myLifeId = parseInt(myLifeIdMatch[1]);
                 console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}"`);
@@ -16793,7 +16793,6 @@ async function sincronizarGoogleParaMyLife() {
                     console.log(`✅ Evento ${myLifeId} atualizado no App`);
                 }
             } 
-            // 🔴 SE NÃO TEM ID MY LIFE → CRIAR novo evento
             else {
                 const { data: existente } = await supabaseClient
                     .from('eventos')
@@ -16834,6 +16833,7 @@ async function sincronizarGoogleParaMyLife() {
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
+            // SEM showToast - silencioso
         }
         
     } catch (error) {
@@ -18076,6 +18076,10 @@ function calcularProximaDataEvento(regra, aPartirDe) {
 // SINCRONIZAÇÃO AUTOMÁTICA (EM SEGUNDO PLANO - SILENCIOSA)
 // ============================================
 
+// ============================================
+// SINCRONIZAÇÃO AUTOMÁTICA (EM SEGUNDO PLANO - SILENCIOSA)
+// ============================================
+
 async function sincronizarGoogleAutomatico() {
     // Executa em segundo plano sem travar a interface
     setTimeout(async () => {
@@ -18090,12 +18094,7 @@ async function sincronizarGoogleAutomatico() {
                 .eq('user_id', App.currentUser.id)
                 .maybeSingle();
             
-            if (!googleToken) {
-                console.log('⚠️ Google não conectado, sincronização ignorada');
-                return;
-            }
-            
-            console.log('🔄 Sincronização automática em segundo plano...');
+            if (!googleToken) return;
             
             // Buscar configurações atuais
             const configAtual = App.dataCache.configuracoesSync || {
@@ -18111,7 +18110,7 @@ async function sincronizarGoogleAutomatico() {
             const { data: { session } } = await App.supabase.auth.getSession();
             if (!session) return;
             
-            // 🔴 CHAMAR A EDGE FUNCTION COM forcar_completo: true
+            // Chamar a Edge Function para sincronizar (SILENCIOSO)
             const response = await fetch('https://rirvrrlgjetsgwhqqfvq.supabase.co/functions/v1/sincronizar-google', {
                 method: 'POST',
                 headers: {
@@ -18119,7 +18118,7 @@ async function sincronizarGoogleAutomatico() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    forcar_completo: true,  // 🔴 ESTA É A LINHA IMPORTANTE!
+                    forcar_completo: true,
                     cores_personalizadas: {
                         cor_eventos: configAtual.cor_eventos,
                         cor_tarefas: configAtual.cor_tarefas,
@@ -18138,6 +18137,7 @@ async function sincronizarGoogleAutomatico() {
             }
             
         } catch (error) {
+            // Apenas log de erro no console, sem atrapalhar o usuário
             console.error('Erro na sincronização automática (background):', error);
         }
     }, 100);

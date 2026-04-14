@@ -7327,7 +7327,7 @@ function carregarUsuarioLocal() {
     let conteudo = `
         <div class="form-group">
             <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-            <input type="text" id="contaDescricao" class="form-input" placeholder="Ex: Energia, Água..." autocomplete="off">
+            <input type="text" id="contaDescricao" class="form-input" placeholder="Ex: Energia, Água..." oninput="limitarTitulo(this, 30)">
         </div>
         
         <div class="form-group">
@@ -7867,7 +7867,7 @@ async function salvarNovaConta() {
     let conteudo = `
         <div class="form-group">
             <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-            <input type="text" id="contaDescricaoEdit" class="form-input" value="${conta.descricao}">
+            <input type="text" id="contaDescricaoEdit" class="form-input" value="${conta.descricao}" oninput="limitarTitulo(this, 30)">
         </div>
         
         <div class="form-group">
@@ -8792,7 +8792,7 @@ async function salvarEdicaoConta(id, isRecorrente, regraId, dia, mes, ano) {
             <!-- TÍTULO DO EVENTO -->
             <div class="form-group" style="margin-top: 16px;">
                 <label class="form-label"><i class="fas fa-heading"></i> Título do Evento</label>
-                <input type="text" id="eventoTitulo" class="form-input" placeholder="Digite o título" style="width: 100%;">
+                <input type="text" id="eventoTitulo" class="form-input" placeholder="Digite o título" oninput="limitarTitulo(this, 30)">
             </div>
             
             <!-- FREQUÊNCIA -->
@@ -11334,7 +11334,7 @@ function garantirNomeUsuario(nome) {
             let conteudo = `
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-heading"></i> Título</label>
-                    <input type="text" id="eventoTituloEdit" class="form-input" value="${isRecorrente ? evento.titulo_base : evento.titulo}">
+                    <input type="text" id="eventoTituloEdit" class="form-input" value="${isRecorrente ? evento.titulo_base : evento.titulo}" oninput="limitarTitulo(this, 30)">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-repeat"></i> Frequência</label>
@@ -13549,7 +13549,7 @@ function abrirManualRapido() {
             let conteudo = `
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-                    <input type="text" id="gastoDescricao" class="form-input" placeholder="Ex: Compras mercado...">
+                    <input type="text" id="gastoDescricao" class="form-input" placeholder="Ex: Compras mercado..." oninput="limitarTitulo(this, 30)">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor</label>
@@ -13702,7 +13702,7 @@ function abrirManualRapido() {
             let conteudo = `
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-heading"></i> Descrição</label>
-                    <input type="text" id="gastoDescricaoEdit" class="form-input" value="${gasto.descricao}">
+                    <input type="text" id="gastoDescricaoEdit" class="form-input" value="${gasto.descricao}" oninput="limitarTitulo(this, 30)">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fas fa-dollar-sign"></i> Valor</label>
@@ -16115,7 +16115,7 @@ function abrirNovaTarefa() {
     let conteudo = `
         <div class="form-group">
             <label class="form-label"><i class="fas fa-heading"></i> Título da Tarefa</label>
-            <input type="text" id="tarefaTitulo" class="form-input" placeholder="Ex: Comprar leite, Pagar conta...">
+            <input type="text" id="tarefaTitulo" class="form-input" placeholder="Ex: Comprar leite, Pagar conta..." oninput="limitarTitulo(this, 30)">
         </div>
         <div class="form-group">
             <label class="form-label"><i class="fas fa-align-left"></i> Descrição (opcional)</label>
@@ -16262,7 +16262,7 @@ async function editarTarefa(id) {
     let conteudo = `
         <div class="form-group">
             <label class="form-label"><i class="fas fa-heading"></i> Título</label>
-            <input type="text" id="tarefaTituloEdit" class="form-input" value="${tarefa.titulo.replace(/"/g, '&quot;')}">
+            <input type="text" id="tarefaTituloEdit" class="form-input" value="${tarefa.titulo.replace(/"/g, '&quot;')}" oninput="limitarTitulo(this, 30)">
         </div>
         <div class="form-group">
             <label class="form-label"><i class="fas fa-align-left"></i> Descrição</label>

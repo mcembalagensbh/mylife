@@ -10289,7 +10289,14 @@ function abrirModalGoogleAgenda() {
         return;
     }
     
-    // Buscar configurações atuais do usuário (com valores padrão TRUE)
+    // 🔴 VERIFICAR SE TEM USUÁRIO SELECIONADO
+    if (!App.usuarioAtual) {
+        showToast('Selecione seu nome no topo antes de conectar o Google', 'warning');
+        abrirSelecaoUsuario(false, null);
+        return;
+    }
+    
+    // Buscar configurações atuais do usuário
     let configAtual = App.dataCache.configuracoesSync || {
         sincronizar_eventos: true,
         sincronizar_tarefas: true,
@@ -10302,6 +10309,16 @@ function abrirModalGoogleAgenda() {
     configAtual.sincronizar_eventos = configAtual.sincronizar_eventos !== false;
     configAtual.sincronizar_tarefas = configAtual.sincronizar_tarefas !== false;
     configAtual.sincronizar_contas = configAtual.sincronizar_contas !== false;
+    
+    // 🔴 VERIFICAR SE ESTE USUÁRIO JÁ TEM CONEXÃO
+    const checkConnection = async () => {
+        const { data: tokenData } = await App.supabase
+            .from('google_tokens')
+            .select('*')
+            .eq('usuario_familia_id', App.usuarioAtual.id)
+            .maybeSingle();
+        return !!tokenData;
+    };
     
     const opcoesCores = [
         { id: '1', nome: 'Azul', cor: '#4285f4', corBg: '#4285f4' },
@@ -10334,7 +10351,16 @@ function abrirModalGoogleAgenda() {
         `;
     }
     
-    const isConnected = localStorage.getItem('google_connected') === 'true';
+    // Verificar status inicial
+    let isConnected = false;
+    (async () => {
+        const { data: tokenData } = await App.supabase
+            .from('google_tokens')
+            .select('*')
+            .eq('usuario_familia_id', App.usuarioAtual?.id)
+            .maybeSingle();
+        isConnected = !!tokenData;
+    })();
     
     let conteudo = `
         <div style="padding: 0;">
@@ -10343,16 +10369,16 @@ function abrirModalGoogleAgenda() {
                     <i class="fab fa-google" style="font-size: 28px; color: #4285f4;"></i>
                     <div>
                         <h3 style="margin: 0; font-size: 1.2rem; color: #1a73e8;">Google Agenda</h3>
-                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #5f6368;">Sincronize seus dados</p>
+                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #5f6368;">Usuário: <strong>${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}</strong></p>
                     </div>
                 </div>
             </div>
             
             <div style="padding: 20px;">
-                <div id="googleStatusModal" style="margin-bottom: 20px; padding: 12px; background: ${isConnected ? '#e8f5e9' : '#fef7e0'}; border-radius: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas ${isConnected ? 'fa-check-circle' : 'fa-plug'}" style="color: ${isConnected ? '#2e7d32' : '#f9a825'}; font-size: 18px;"></i>
-                    <span style="font-size: 13px; color: ${isConnected ? '#2e7d32' : '#b85c00'};">
-                        ${isConnected ? '✅ Conectado ao Google Calendar' : '⚠️ Não conectado. Selecione as opções abaixo e clique em "Conectar com Google".'}
+                <div id="googleStatusModal" style="margin-bottom: 20px; padding: 12px; background: #fef7e0; border-radius: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-plug" style="color: #f9a825; font-size: 18px;"></i>
+                    <span style="font-size: 13px; color: #b85c00;" id="statusTexto">
+                        Verificando conexão...
                     </span>
                 </div>
                 
@@ -10396,16 +10422,16 @@ function abrirModalGoogleAgenda() {
                     <button id="btnConectarGoogleModal" class="btn" style="width: 100%; padding: 12px; background: #4285f4; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer;">
                         <i class="fab fa-google"></i> Conectar com Google
                     </button>
-                    <button id="btnSincronizarGoogleModal" class="btn" style="width: 100%; padding: 12px; background: #34a853; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; display: ${isConnected ? 'block' : 'none'};">
+                    <button id="btnSincronizarGoogleModal" class="btn" style="width: 100%; padding: 12px; background: #34a853; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; display: none;">
                         <i class="fas fa-sync-alt"></i> Salvar e Sincronizar
                     </button>
                     <button id="btnDesconectarGoogleModal" class="btn" style="width: 100%; padding: 12px; background: #ea4335; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; display: none;">
                         <i class="fas fa-trash"></i> Desconectar
                     </button>
-                    <button id="btnForcarSyncCompleto" class="btn" style="width: 100%; padding: 12px; background: #f39c12; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; margin-top: 10px; display: ${isConnected ? 'block' : 'none'};">
+                    <button id="btnForcarSyncCompleto" class="btn" style="width: 100%; padding: 12px; background: #f39c12; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; margin-top: 10px; display: none;">
                         <i class="fas fa-sync-alt"></i> 🔄 Forçar Sincronização de Itens Antigos
                     </button>
-                    <button id="btnForcarSyncGoogle" class="btn" style="width: 100%; padding: 12px; background: #1a73e8; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; margin-top: 5px; display: ${isConnected ? 'block' : 'none'};">
+                    <button id="btnForcarSyncGoogle" class="btn" style="width: 100%; padding: 12px; background: #1a73e8; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; margin-top: 5px; display: none;">
                         <i class="fab fa-google"></i> 📥 Buscar Eventos do Google Agora
                     </button>
                     <button onclick="fecharModal()" class="btn" style="width: 100%; padding: 12px; background: #5f6368; color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer;">
@@ -10452,7 +10478,6 @@ function abrirModalGoogleAgenda() {
         }
     }
     
-    // Função auxiliar para verificar se pelo menos uma opção está marcada
     function verificarOpcoesMarcadas() {
         const syncEventos = document.getElementById('syncEventosModal')?.checked;
         const syncTarefas = document.getElementById('syncTarefasModal')?.checked;
@@ -10460,7 +10485,6 @@ function abrirModalGoogleAgenda() {
         return syncEventos || syncTarefas || syncContas;
     }
     
-    // Função para mostrar popup de erro de nenhuma opção
     function mostrarPopupNenhumaOpcao() {
         const mensagem = `
             <div style="text-align: center; padding: 20px;">
@@ -10476,7 +10500,7 @@ function abrirModalGoogleAgenda() {
         abrirModal('Atenção', 'fa-exclamation-triangle', mensagem);
     }
     
-    // 🔴 BOTÃO CONECTAR COM GOOGLE COM VALIDAÇÃO
+    // Botão CONECTAR
     const btnConectar = document.getElementById('btnConectarGoogleModal');
     if (btnConectar) {
         btnConectar.onclick = async () => {
@@ -10494,7 +10518,11 @@ function abrirModalGoogleAgenda() {
                     return;
                 }
                 
-                const state = session.user.id;
+                // 🔴 INCLUIR O ID DO USUÁRIO DA FAMÍLIA NO STATE
+                const state = JSON.stringify({
+                    userId: session.user.id,
+                    usuarioFamiliaId: App.usuarioAtual.id
+                });
                 
                 const { error: stateError } = await App.supabase
                     .from('google_oauth_states')
@@ -10531,22 +10559,21 @@ function abrirModalGoogleAgenda() {
         };
     }
     
-    // 🔴 BOTÃO DESCONECTAR
+    // Botão DESCONECTAR
     const btnDesconectar = document.getElementById('btnDesconectarGoogleModal');
     if (btnDesconectar) {
         btnDesconectar.onclick = async () => {
-            if (!confirm('Tem certeza que deseja desconectar sua conta Google?')) return;
+            if (!confirm(`Tem certeza que deseja desconectar a conta Google do usuário ${App.usuarioAtual?.apelido}?`)) return;
             
             try {
                 const { error } = await App.supabase
                     .from('google_tokens')
                     .delete()
-                    .eq('user_id', App.currentUser.id);
+                    .eq('usuario_familia_id', App.usuarioAtual.id);
                 
                 if (error) throw error;
                 
-                localStorage.setItem('google_connected', 'false');
-                showToast('✅ Conta Google desconectada!', 'success');
+                showToast(`✅ Google desconectado para ${App.usuarioAtual?.apelido}!`, 'success');
                 fecharModal();
                 
             } catch (error) {
@@ -10556,7 +10583,7 @@ function abrirModalGoogleAgenda() {
         };
     }
     
-    // 🔴 BOTÃO SALVAR E SINCRONIZAR COM VALIDAÇÃO E CONFIRMAÇÃO
+    // Botão SALVAR E SINCRONIZAR
     const btnSincronizar = document.getElementById('btnSincronizarGoogleModal');
     if (btnSincronizar) {
         btnSincronizar.onclick = async () => {
@@ -10572,106 +10599,55 @@ function abrirModalGoogleAgenda() {
                 return;
             }
             
-            let opcoesEscolhidas = [];
-            if (syncEventos) opcoesEscolhidas.push('📅 Eventos');
-            if (syncTarefas) opcoesEscolhidas.push('📌 Tarefas');
-            if (syncContas) opcoesEscolhidas.push('💰 Contas');
-            
-            let opcoesNaoEscolhidas = [];
-            if (!syncEventos) opcoesNaoEscolhidas.push('📅 Eventos');
-            if (!syncTarefas) opcoesNaoEscolhidas.push('📌 Tarefas');
-            if (!syncContas) opcoesNaoEscolhidas.push('💰 Contas');
-            
-            let mensagemConfirmacao = `
-                <div style="text-align: center; padding: 10px;">
-                    <i class="fas fa-question-circle" style="font-size: 48px; color: var(--purple); margin-bottom: 15px;"></i>
-                    <h3 style="margin-bottom: 10px;">Confirmar sincronização</h3>
-                    <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin: 15px 0; text-align: left;">
-                        <p style="margin-bottom: 10px;"><strong>Você escolheu sincronizar:</strong></p>
-                        <ul style="margin-left: 20px; color: var(--success);">
-                            ${opcoesEscolhidas.map(op => `<li>✅ ${op}</li>`).join('')}
-                        </ul>
-                        ${opcoesNaoEscolhidas.length > 0 ? `
-                            <p style="margin-top: 10px; margin-bottom: 10px;"><strong>Você NÃO escolheu:</strong></p>
-                            <ul style="margin-left: 20px; color: var(--warning);">
-                                ${opcoesNaoEscolhidas.map(op => `<li>⚠️ ${op}</li>`).join('')}
-                            </ul>
-                            <p style="margin-top: 10px; font-size: 12px; color: var(--gray);">
-                                <i class="fas fa-info-circle"></i> Os itens não selecionados serão <strong>removidos</strong> do Google Calendar se já existirem.
-                            </p>
-                        ` : ''}
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button id="confirmarSyncBtn" class="btn btn-primary" style="flex: 1;">
-                            <i class="fas fa-check"></i> Sim, sincronizar
-                        </button>
-                        <button onclick="fecharModal()" class="btn" style="flex: 1; background: var(--gray); color: #fff;">
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            abrirModal('Confirmar Sincronização', 'fa-question-circle', mensagemConfirmacao);
-            
-            document.getElementById('confirmarSyncBtn').onclick = async () => {
-                fecharModal();
+            try {
+                showToast('Salvando configurações...', 'info');
                 
-                try {
-                    showToast('Salvando configurações e sincronizando...', 'info');
-                    
-                    const { error } = await App.supabase
-                        .from('configuracoes_sync')
-                        .upsert({
-                            user_id: App.currentUser.id,
-                            sincronizar_eventos: syncEventos,
-                            sincronizar_tarefas: syncTarefas,
-                            sincronizar_contas: syncContas,
-                            cor_eventos: corEventos,
-                            cor_tarefas: corTarefas,
-                            cor_contas: corContas,
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'user_id' });
-                    
-                    if (error) throw error;
-                    
-                    App.dataCache.configuracoesSync = {
+                const { error } = await App.supabase
+                    .from('configuracoes_sync')
+                    .upsert({
+                        user_id: App.currentUser.id,
+                        usuario_familia_id: App.usuarioAtual.id,
                         sincronizar_eventos: syncEventos,
                         sincronizar_tarefas: syncTarefas,
                         sincronizar_contas: syncContas,
                         cor_eventos: corEventos,
                         cor_tarefas: corTarefas,
-                        cor_contas: corContas
-                    };
-                    
-                    await sincronizarGoogleComCores({
-                        cor_eventos: corEventos,
-                        cor_tarefas: corTarefas,
-                        cor_contas: corContas
-                    });
-                    
-                } catch (error) {
-                    console.error('Erro:', error);
-                    showToast('Erro ao salvar configurações', 'error');
-                }
-            };
+                        cor_contas: corContas,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'usuario_familia_id' });
+                
+                if (error) throw error;
+                
+                App.dataCache.configuracoesSync = {
+                    sincronizar_eventos: syncEventos,
+                    sincronizar_tarefas: syncTarefas,
+                    sincronizar_contas: syncContas,
+                    cor_eventos: corEventos,
+                    cor_tarefas: corTarefas,
+                    cor_contas: corContas
+                };
+                
+                showToast('✅ Configurações salvas!', 'success');
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('Erro ao salvar configurações', 'error');
+            }
         };
     }
     
-    // 🔴 BOTÃO FORÇAR SINCRONIZAÇÃO COMPLETA (ITENS ANTIGOS)
+    // Botão FORÇAR SINCRONIZAÇÃO COMPLETA
     const btnForcarCompleto = document.getElementById('btnForcarSyncCompleto');
     if (btnForcarCompleto) {
         btnForcarCompleto.onclick = async () => {
             fecharModal();
             if (typeof forcarSincronizacaoCompleta === 'function') {
                 await forcarSincronizacaoCompleta();
-            } else {
-                showToast('Função não encontrada. Certifique-se de que forcarSincronizacaoCompleta está definida.', 'error');
             }
         };
     }
     
-    // 🔴 BOTÃO BUSCAR EVENTOS DO GOOGLE
+    // Botão BUSCAR EVENTOS DO GOOGLE
     const btnForcarSyncGoogle = document.getElementById('btnForcarSyncGoogle');
     if (btnForcarSyncGoogle) {
         btnForcarSyncGoogle.onclick = async () => {
@@ -10680,13 +10656,11 @@ function abrirModalGoogleAgenda() {
             if (typeof sincronizarGoogleParaMyLife === 'function') {
                 await sincronizarGoogleParaMyLife();
                 showToast('✅ Busca concluída!', 'success');
-            } else {
-                showToast('Função não encontrada', 'error');
             }
         };
     }
     
-    // Atualizar status de conexão e visibilidade dos botões
+    // Atualizar status de conexão
     setTimeout(async () => {
         const statusEl = document.getElementById('googleStatusModal');
         const btnConectar = document.getElementById('btnConectarGoogleModal');
@@ -10694,6 +10668,7 @@ function abrirModalGoogleAgenda() {
         const btnDesconectar = document.getElementById('btnDesconectarGoogleModal');
         const btnForcarCompleto = document.getElementById('btnForcarSyncCompleto');
         const btnForcarGoogle = document.getElementById('btnForcarSyncGoogle');
+        const statusTexto = document.getElementById('statusTexto');
         
         if (!statusEl) return;
         
@@ -10701,45 +10676,36 @@ function abrirModalGoogleAgenda() {
             const { data: tokenData } = await App.supabase
                 .from('google_tokens')
                 .select('*')
-                .eq('user_id', App.currentUser.id)
+                .eq('usuario_familia_id', App.usuarioAtual?.id)
                 .maybeSingle();
             
             if (tokenData) {
                 const expiresAt = new Date(tokenData.expires_at);
                 if (expiresAt > new Date()) {
-                    statusEl.innerHTML = `
-                        <i class="fas fa-check-circle" style="color: #2e7d32; font-size: 18px;"></i>
-                        <span style="font-size: 13px; color: #2e7d32;">✅ Conectado ao Google Calendar</span>
-                    `;
+                    statusEl.style.background = '#e8f5e9';
+                    statusTexto.innerHTML = `✅ Conectado ao Google Calendar como ${App.usuarioAtual?.apelido}`;
                     if (btnConectar) btnConectar.style.display = 'none';
                     if (btnSincronizar) btnSincronizar.style.display = 'block';
                     if (btnDesconectar) btnDesconectar.style.display = 'block';
                     if (btnForcarCompleto) btnForcarCompleto.style.display = 'block';
                     if (btnForcarGoogle) btnForcarGoogle.style.display = 'block';
-                    localStorage.setItem('google_connected', 'true');
                 } else {
-                    statusEl.innerHTML = `
-                        <i class="fas fa-exclamation-triangle" style="color: #f9a825; font-size: 18px;"></i>
-                        <span style="font-size: 13px; color: #b85c00;">⚠️ Conexão expirada. Selecione as opções e clique em "Conectar".</span>
-                    `;
+                    statusEl.style.background = '#fef7e0';
+                    statusTexto.innerHTML = `⚠️ Conexão expirada para ${App.usuarioAtual?.apelido}. Clique em "Conectar" novamente.`;
                     if (btnConectar) btnConectar.style.display = 'block';
                     if (btnSincronizar) btnSincronizar.style.display = 'none';
                     if (btnDesconectar) btnDesconectar.style.display = 'block';
                     if (btnForcarCompleto) btnForcarCompleto.style.display = 'none';
                     if (btnForcarGoogle) btnForcarGoogle.style.display = 'none';
-                    localStorage.setItem('google_connected', 'false');
                 }
             } else {
-                statusEl.innerHTML = `
-                    <i class="fas fa-plug" style="color: #5f6368; font-size: 18px;"></i>
-                    <span style="font-size: 13px; color: #5f6368;">⚠️ Não conectado. Selecione as opções abaixo e clique em "Conectar com Google".</span>
-                `;
+                statusEl.style.background = '#fef7e0';
+                statusTexto.innerHTML = `⚠️ ${App.usuarioAtual?.apelido} não conectado. Clique em "Conectar com Google".`;
                 if (btnConectar) btnConectar.style.display = 'block';
                 if (btnSincronizar) btnSincronizar.style.display = 'none';
                 if (btnDesconectar) btnDesconectar.style.display = 'none';
                 if (btnForcarCompleto) btnForcarCompleto.style.display = 'none';
                 if (btnForcarGoogle) btnForcarGoogle.style.display = 'none';
-                localStorage.setItem('google_connected', 'false');
             }
         } catch (e) {
             console.log('Erro ao verificar token:', e);
@@ -16673,10 +16639,14 @@ async function sincronizarGoogleParaMyLife() {
     
     if (!userId) return;
     
+    // 🔴 VERIFICAR SE TEM USUÁRIO DA FAMÍLIA SELECIONADO
+    if (!App.usuarioAtual) return;
+    
+    // Buscar token do Google para este usuário específico
     const { data: googleToken } = await supabaseClient
         .from('google_tokens')
         .select('*')
-        .eq('user_id', userId)
+        .eq('usuario_familia_id', App.usuarioAtual.id)
         .maybeSingle();
     
     if (!googleToken) return;
@@ -16704,7 +16674,7 @@ async function sincronizarGoogleParaMyLife() {
                 await supabaseClient
                     .from('google_tokens')
                     .update({ access_token: accessToken, expires_at: newExpiresAt.toISOString() })
-                    .eq('user_id', userId);
+                    .eq('usuario_familia_id', App.usuarioAtual.id);
             }
         } catch (error) {
             console.error('Erro ao renovar token:', error);
@@ -16712,7 +16682,47 @@ async function sincronizarGoogleParaMyLife() {
         }
     }
     
-    const MY_LIFE_CALENDAR_ID = 'e296cbd5b44633cc4294a59ec2b78c5a3613fe24085a5b69ff4dc91632dc70c9@group.calendar.google.com';
+    // 🔴 Usar calendar_id específico do usuário ou criar um novo
+    let calendarId = googleToken.calendar_id;
+    
+    if (!calendarId) {
+        // Buscar ou criar calendário "My Life - [Nome do Usuário]"
+        const calendarName = `My Life - ${App.usuarioAtual.apelido || App.usuarioAtual.nome}`;
+        
+        const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const calendarsList = await listResponse.json();
+        
+        const existingCalendar = calendarsList.items?.find(c => c.summary === calendarName);
+        
+        if (existingCalendar) {
+            calendarId = existingCalendar.id;
+        } else {
+            const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    summary: calendarName, 
+                    description: `Calendário sincronizado do My Life - ${App.usuarioAtual.apelido || App.usuarioAtual.nome}`,
+                    timeZone: 'America/Sao_Paulo' 
+                })
+            });
+            const newCalendar = await createResponse.json();
+            if (createResponse.ok) {
+                calendarId = newCalendar.id;
+                await supabaseClient
+                    .from('google_tokens')
+                    .update({ calendar_id: calendarId })
+                    .eq('usuario_familia_id', App.usuarioAtual.id);
+            }
+        }
+    }
+    
+    if (!calendarId) {
+        console.error('Não foi possível criar/obter calendário');
+        return;
+    }
     
     const hoje = new Date();
     const trintaDiasAtras = new Date();
@@ -16725,7 +16735,7 @@ async function sincronizarGoogleParaMyLife() {
     
     try {
         const eventsResponse = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${MY_LIFE_CALENDAR_ID}/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=100&orderBy=updated&singleEvents=true`,
+            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=100&orderBy=updated&singleEvents=true`,
             { headers: { 'Authorization': `Bearer ${accessToken}`, 'Cache-Control': 'no-cache' } }
         );
         
@@ -16734,7 +16744,7 @@ async function sincronizarGoogleParaMyLife() {
         const eventsData = await eventsResponse.json();
         const items = eventsData.items || [];
         
-        console.log(`📊 Polling: ${items.length} eventos encontrados no Google`);
+        console.log(`📊 Polling (${App.usuarioAtual.apelido}): ${items.length} eventos encontrados no Google`);
         
         let atualizados = 0;
         let criados = 0;
@@ -16770,7 +16780,7 @@ async function sincronizarGoogleParaMyLife() {
             
             if (myLifeIdMatch) {
                 const myLifeId = parseInt(myLifeIdMatch[1]);
-                console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}"`);
+                console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}" (${App.usuarioAtual.apelido})`);
                 
                 const { error: updateError } = await supabaseClient
                     .from('eventos')
@@ -16806,7 +16816,7 @@ async function sincronizarGoogleParaMyLife() {
                 
                 if (existente) continue;
                 
-                console.log(`➕ Criando novo evento: "${titulo}"`);
+                console.log(`➕ Criando novo evento: "${titulo}" (${App.usuarioAtual.apelido})`);
                 
                 const { error: insertError } = await supabaseClient
                     .from('eventos')
@@ -16821,7 +16831,8 @@ async function sincronizarGoogleParaMyLife() {
                         dia: dia,
                         is_recorrente: false,
                         added_by: 'Google Calendar',
-                        google_event_id: item.id
+                        google_event_id: item.id,
+                        usuario_familia_id: App.usuarioAtual.id  // 🔴 NOVO
                     });
                 
                 if (!insertError) criados++;
@@ -16829,11 +16840,10 @@ async function sincronizarGoogleParaMyLife() {
         }
         
         if (criados > 0 || atualizados > 0) {
-            console.log(`🔄 Polling: ${criados} criados, ${atualizados} atualizados`);
+            console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${atualizados} atualizados`);
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
-            // SEM showToast - silencioso
         }
         
     } catch (error) {
@@ -17064,25 +17074,37 @@ async function forcarBuscaGoogle() {
 // FORÇAR SINCRONIZAÇÃO DE ITENS ANTIGOS
 // ============================================
 
+// ============================================
+// FORÇAR SINCRONIZAÇÃO DE TODOS OS ITENS EXISTENTES (ANTIGOS)
+// ============================================
+
 async function forcarSincronizacaoCompleta() {
     if (!App.currentUser) {
         showToast('Você precisa estar logado', 'warning');
         return;
     }
     
+    // 🔴 VERIFICAR SE TEM USUÁRIO DA FAMÍLIA SELECIONADO
+    if (!App.usuarioAtual) {
+        showToast('Selecione seu nome no topo primeiro', 'warning');
+        abrirSelecaoUsuario(false, null);
+        return;
+    }
+    
+    // Verificar se o Google está conectado para este usuário
     const { data: googleToken } = await App.supabase
         .from('google_tokens')
         .select('*')
-        .eq('user_id', App.currentUser.id)
+        .eq('usuario_familia_id', App.usuarioAtual.id)
         .maybeSingle();
     
     if (!googleToken) {
-        showToast('⚠️ Conecte o Google Calendar primeiro', 'warning');
+        showToast(`⚠️ ${App.usuarioAtual.apelido}, conecte o Google Calendar primeiro`, 'warning');
         abrirModalGoogleAgenda();
         return;
     }
     
-    showToast('🔄 Sincronizando TODOS os itens existentes...', 'info');
+    showToast(`🔄 Sincronizando todos os itens de ${App.usuarioAtual.apelido}... Isso pode levar alguns segundos`, 'info');
     
     try {
         const { data: { session } } = await App.supabase.auth.getSession();
@@ -17091,7 +17113,14 @@ async function forcarSincronizacaoCompleta() {
             return;
         }
         
-        const configAtual = App.dataCache.configuracoesSync || {
+        // Buscar configurações atuais do usuário
+        const { data: config } = await App.supabase
+            .from('configuracoes_sync')
+            .select('*')
+            .eq('usuario_familia_id', App.usuarioAtual.id)
+            .maybeSingle();
+        
+        const configAtual = config || {
             sincronizar_eventos: true,
             sincronizar_tarefas: true,
             sincronizar_contas: true,
@@ -17107,6 +17136,7 @@ async function forcarSincronizacaoCompleta() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+                usuario_familia_id: App.usuarioAtual.id,  // 🔴 NOVO
                 forcar_completo: true,
                 cores_personalizadas: {
                     cor_eventos: configAtual.cor_eventos,
@@ -17119,12 +17149,13 @@ async function forcarSincronizacaoCompleta() {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            let mensagem = `✅ Sincronização completa! `;
+            let mensagem = `✅ Sincronização completa (${App.usuarioAtual.apelido})! `;
             if (data.eventos_enviados) mensagem += `${data.eventos_enviados} eventos, `;
             if (data.tarefas_enviadas) mensagem += `${data.tarefas_enviadas} tarefas, `;
             if (data.contas_enviadas) mensagem += `${data.contas_enviadas} contas.`;
             
             showToast(mensagem, 'success');
+            
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
@@ -17132,12 +17163,13 @@ async function forcarSincronizacaoCompleta() {
             setTimeout(() => {
                 sincronizarGoogleParaMyLife();
             }, 2000);
+            
         } else {
             showToast('Erro: ' + (data.error || 'Erro desconhecido'), 'error');
         }
         
     } catch (error) {
-        console.error('Erro:', error);
+        console.error('Erro na sincronização completa:', error);
         showToast('Erro: ' + error.message, 'error');
     }
 }
@@ -18080,6 +18112,10 @@ function calcularProximaDataEvento(regra, aPartirDe) {
 // SINCRONIZAÇÃO AUTOMÁTICA (EM SEGUNDO PLANO - SILENCIOSA)
 // ============================================
 
+// ============================================
+// SINCRONIZAÇÃO AUTOMÁTICA (EM SEGUNDO PLANO - SILENCIOSA)
+// ============================================
+
 async function sincronizarGoogleAutomatico() {
     // Executa em segundo plano sem travar a interface
     setTimeout(async () => {
@@ -18087,17 +18123,26 @@ async function sincronizarGoogleAutomatico() {
             // Verificar se usuário está logado
             if (!App.currentUser) return;
             
-            // Verificar se Google está conectado
+            // 🔴 VERIFICAR SE TEM USUÁRIO DA FAMÍLIA SELECIONADO
+            if (!App.usuarioAtual) return;
+            
+            // Verificar se Google está conectado para este usuário
             const { data: googleToken } = await App.supabase
                 .from('google_tokens')
                 .select('*')
-                .eq('user_id', App.currentUser.id)
+                .eq('usuario_familia_id', App.usuarioAtual.id)
                 .maybeSingle();
             
             if (!googleToken) return;
             
-            // Buscar configurações atuais
-            const configAtual = App.dataCache.configuracoesSync || {
+            // Buscar configurações atuais do usuário
+            const { data: config } = await App.supabase
+                .from('configuracoes_sync')
+                .select('*')
+                .eq('usuario_familia_id', App.usuarioAtual.id)
+                .maybeSingle();
+            
+            const configAtual = config || {
                 sincronizar_eventos: true,
                 sincronizar_tarefas: true,
                 sincronizar_contas: true,
@@ -18118,6 +18163,7 @@ async function sincronizarGoogleAutomatico() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    usuario_familia_id: App.usuarioAtual.id,  // 🔴 NOVO
                     forcar_completo: true,
                     cores_personalizadas: {
                         cor_eventos: configAtual.cor_eventos,
@@ -18132,12 +18178,11 @@ async function sincronizarGoogleAutomatico() {
             // Apenas log no console, sem notificação para o usuário
             if (response.ok && data.success) {
                 if (data.criados > 0 || data.atualizados > 0) {
-                    console.log(`🔄 Sincronização automática: ${data.criados} criados, ${data.atualizados} atualizados`);
+                    console.log(`🔄 Sincronização automática (${App.usuarioAtual.apelido}): ${data.criados} criados, ${data.atualizados} atualizados`);
                 }
             }
             
         } catch (error) {
-            // Apenas log de erro no console, sem atrapalhar o usuário
             console.error('Erro na sincronização automática (background):', error);
         }
     }, 100);

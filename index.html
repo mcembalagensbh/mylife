@@ -16453,7 +16453,6 @@ async function sincronizarGoogleParaMyLife() {
     
     if (!googleToken) return;
     
-    // Renovar token se necessário
     let accessToken = googleToken.access_token;
     const expiresAt = new Date(googleToken.expires_at);
     
@@ -16507,13 +16506,14 @@ async function sincronizarGoogleParaMyLife() {
         const eventsData = await eventsResponse.json();
         const items = eventsData.items || [];
         
+        console.log(`📊 Polling: ${items.length} eventos encontrados no Google`);
+        
+        let atualizados = 0;
         let criados = 0;
         
         for (const item of items) {
             const description = item.description || '';
             const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
-            
-            if (myLifeIdMatch) continue;
             
             let titulo = item.summary || 'Sem título';
             titulo = titulo.replace(/^📅 /, '').replace(/^💰 /, '').replace(/^.*\[TAREFA\] /, '');
@@ -16523,6 +16523,7 @@ async function sincronizarGoogleParaMyLife() {
             
             let dataInicio;
             let hora = '';
+            let isDiaInteiro = false;
             
             if (item.start?.dateTime) {
                 dataInicio = new Date(item.start.dateTime);
@@ -16530,6 +16531,7 @@ async function sincronizarGoogleParaMyLife() {
             } else if (item.start?.date) {
                 dataInicio = new Date(item.start.date + 'T12:00:00');
                 hora = '';
+                isDiaInteiro = true;
             } else {
                 dataInicio = new Date();
             }
@@ -16538,39 +16540,70 @@ async function sincronizarGoogleParaMyLife() {
             const mes = dataInicio.getMonth() + 1;
             const dia = dataInicio.getDate();
             
-            const { data: existente } = await supabaseClient
-                .from('eventos')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('titulo', titulo)
-                .eq('dia', dia)
-                .eq('mes', mes)
-                .eq('ano', ano)
-                .maybeSingle();
-            
-            if (existente) continue;
-            
-            const { error: insertError } = await supabaseClient
-                .from('eventos')
-                .insert({
-                    user_id: userId,
-                    titulo: titulo,
-                    descricao: descricao,
-                    local: local,
-                    hora: hora || null,
-                    ano: ano,
-                    mes: mes,
-                    dia: dia,
-                    is_recorrente: false,
-                    added_by: 'Google Calendar',
-                    google_event_id: item.id
-                });
-            
-            if (!insertError) criados++;
+            // 🔴 SE TEM ID MY LIFE → ATUALIZAR o evento existente
+            if (myLifeIdMatch) {
+                const myLifeId = parseInt(myLifeIdMatch[1]);
+                console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}"`);
+                
+                const { error: updateError } = await supabaseClient
+                    .from('eventos')
+                    .update({
+                        titulo: titulo,
+                        descricao: descricao,
+                        local: local,
+                        hora: isDiaInteiro ? null : hora,
+                        dia: dia,
+                        mes: mes,
+                        ano: ano,
+                        data_inicio: item.start?.dateTime ? item.start.dateTime : item.start?.date,
+                        data_fim: item.end?.dateTime ? item.end.dateTime : item.end?.date
+                    })
+                    .eq('id', myLifeId)
+                    .eq('user_id', userId);
+                
+                if (!updateError) {
+                    atualizados++;
+                    console.log(`✅ Evento ${myLifeId} atualizado no App`);
+                }
+            } 
+            // 🔴 SE NÃO TEM ID MY LIFE → CRIAR novo evento
+            else {
+                const { data: existente } = await supabaseClient
+                    .from('eventos')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('titulo', titulo)
+                    .eq('dia', dia)
+                    .eq('mes', mes)
+                    .eq('ano', ano)
+                    .maybeSingle();
+                
+                if (existente) continue;
+                
+                console.log(`➕ Criando novo evento: "${titulo}"`);
+                
+                const { error: insertError } = await supabaseClient
+                    .from('eventos')
+                    .insert({
+                        user_id: userId,
+                        titulo: titulo,
+                        descricao: descricao,
+                        local: local,
+                        hora: isDiaInteiro ? null : hora,
+                        ano: ano,
+                        mes: mes,
+                        dia: dia,
+                        is_recorrente: false,
+                        added_by: 'Google Calendar',
+                        google_event_id: item.id
+                    });
+                
+                if (!insertError) criados++;
+            }
         }
         
-        if (criados > 0) {
-            console.log(`🔄 Polling: ${criados} novos eventos importados`);
+        if (criados > 0 || atualizados > 0) {
+            console.log(`🔄 Polling: ${criados} criados, ${atualizados} atualizados`);
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
@@ -16580,6 +16613,11 @@ async function sincronizarGoogleParaMyLife() {
         console.error('Erro no polling:', error);
     }
 }
+
+
+
+
+
 
 // ============================================
 // FUNÇÃO AUXILIAR PARA PROCESSAR EVENTOS (CRIAR E ATUALIZAR)

@@ -7540,12 +7540,10 @@ async function salvarNovaConta() {
 
     const nomeUsuario = garantirNomeUsuario(App.usuarioAtual?.apelido || App.usuarioAtual?.nome || 'desconhecido');
     
-    // 🔴 VERIFICAR LIMITES NO PLANO GRÁTIS
     const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
     
     if (!isPremium) {
         if (frequencia === 'unico') {
-            // Limite de contas únicas: 5 por mês
             const { mes, ano } = getMesAnoAtual();
             const contasUnicasMes = App.dataCache.contas.filter(c => 
                 c.mes === mes && c.ano === ano && !c.regra_id
@@ -7558,7 +7556,6 @@ async function salvarNovaConta() {
                         <h3 style="margin-bottom: 10px;">Limite de contas únicas atingido</h3>
                         <p style="margin-bottom: 15px; color: var(--gray);">
                             O plano <strong>Grátis</strong> permite no máximo <strong>5 contas únicas por mês</strong>.<br><br>
-                            Você já atingiu o limite deste mês.<br><br>
                             Com o <strong style="color: var(--purple);">Plano Premium</strong> você pode criar quantas contas quiser!
                         </p>
                         <div style="display: flex; gap: 10px;">
@@ -7575,7 +7572,6 @@ async function salvarNovaConta() {
                 return;
             }
         } else {
-            // 🔴 Limite de contas recorrentes: 5 ativas no total
             const contasRecorrentesAtivas = App.dataCache.regrasContas.filter(r => r.ativo === true).length;
             
             if (contasRecorrentesAtivas >= 5) {
@@ -7585,7 +7581,6 @@ async function salvarNovaConta() {
                         <h3 style="margin-bottom: 10px;">Limite de contas recorrentes atingido</h3>
                         <p style="margin-bottom: 15px; color: var(--gray);">
                             O plano <strong>Grátis</strong> permite no máximo <strong>5 contas recorrentes ativas</strong>.<br><br>
-                            Você já atingiu o limite.<br><br>
                             Com o <strong style="color: var(--purple);">Plano Premium</strong> você pode criar quantas contas recorrentes quiser!
                         </p>
                         <div style="display: flex; gap: 10px;">
@@ -7624,6 +7619,7 @@ async function salvarNovaConta() {
             
             let { data, error } = await App.supabase.from('contas').insert({
                 user_id: App.currentUser.id,
+                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                 descricao: descricao,
                 valor: valor,
                 valor_pago: 0,
@@ -7708,6 +7704,7 @@ async function salvarNovaConta() {
             
             let regraData = {
                 user_id: App.currentUser.id,
+                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                 descricao_base: descricao,
                 valor: valor,
                 dia_vencimento: diaVencimento,
@@ -7747,6 +7744,10 @@ async function salvarNovaConta() {
         showToast('Erro ao salvar: ' + error.message, 'error');
     }
 }
+
+
+
+
 
 
  function editarConta(id, isRecorrente, regraId, dia, mes, ano) {
@@ -9158,7 +9159,6 @@ function atualizarTipoFimEvento() {
 
     const nomeUsuario = App.usuarioAtual?.apelido || App.usuarioAtual?.nome || 'desconhecido';
     
-    // 🔴 VERIFICAR LIMITES NO PLANO GRÁTIS
     const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
     
     if (!isPremium) {
@@ -9239,7 +9239,6 @@ function atualizarTipoFimEvento() {
                 return;
             }
             
-            // 🔴 TRATAMENTO DA HORA: se vazia ou inválida, usar null
             const horaFinal = (hora && hora !== '') ? hora : null;
             
             let dataAtual = new Date(dataInicio);
@@ -9250,12 +9249,13 @@ function atualizarTipoFimEvento() {
                 
                 await App.supabase.from('eventos').insert({
                     user_id: App.currentUser.id,
+                    usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                     titulo: titulo,
                     descricao: desc || '',
                     dia: dia,
                     mes: mes,
                     ano: ano,
-                    hora: horaFinal,  // 🔴 CORRIGIDO
+                    hora: horaFinal,
                     local: local || null,
                     icone: icone,
                     cor_icone: corIcone,
@@ -9290,15 +9290,15 @@ function atualizarTipoFimEvento() {
             let dataInicio = new Date(dataInicioStr + 'T12:00:00');
             let diaEvento = dataInicio.getDate();
             
-            // 🔴 TRATAMENTO DA HORA: se vazia ou inválida, usar null
             const horaFinal = (hora && hora !== '') ? hora : null;
             
             let regraData = {
                 user_id: App.currentUser.id,
+                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                 titulo_base: titulo,
                 descricao: desc || '',
                 dia: diaEvento,
-                hora: horaFinal,  // 🔴 CORRIGIDO
+                hora: horaFinal,
                 local: local || null,
                 icone: icone,
                 cor_icone: corIcone,
@@ -16132,18 +16132,10 @@ async function salvarNovaTarefa() {
         return;
     }
     
-    console.log('🔵 Salvando tarefa:', {
-        titulo,
-        descricao,
-        responsaveisIds,
-        responsaveisNomes,
-        dataLimite,
-        prioridade
-    });
-    
     try {
         const { data, error } = await App.supabase.from('tarefas').insert({
             user_id: App.currentUser.id,
+            usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
             titulo: titulo,
             descricao: descricao || null,
             responsavel_ids: responsaveisIds,
@@ -16164,7 +16156,6 @@ async function salvarNovaTarefa() {
         
         showToast('Tarefa criada!', 'success');
         
-        // 🔴 SINCRONIZAÇÃO AUTOMÁTICA
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -16182,6 +16173,11 @@ async function salvarNovaTarefa() {
         showToast('Erro: ' + error.message, 'error');
     }
 }
+
+
+
+
+
 
 async function editarTarefa(id) {
     let tarefa = App.dataCache.tarefas.find(t => t.id == id);

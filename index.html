@@ -11387,41 +11387,24 @@ function garantirNomeUsuario(nome) {
     }
 
     try {
-        // Buscar o evento original pelo ID
-        let { data: eventoExistente } = await App.supabase
+        // 🔴 BUSCAR O EVENTO PELO ID CORRETO
+        const { data: eventoExistente, error: buscaError } = await App.supabase
             .from('eventos')
             .select('*')
             .eq('id', id)
             .maybeSingle();
         
-        // 🔴 Se não encontrou pelo ID, buscar por título e data (evita duplicação)
-        if (!eventoExistente) {
-            console.log('🔍 Evento não encontrado pelo ID, buscando por título e data...');
-            const { data: eventoPorTitulo } = await App.supabase
-                .from('eventos')
-                .select('*')
-                .eq('user_id', App.currentUser.id)
-                .eq('titulo', titulo)
-                .eq('dia', dia)
-                .eq('mes', mes)
-                .eq('ano', ano)
-                .maybeSingle();
-            
-            if (eventoPorTitulo) {
-                eventoExistente = eventoPorTitulo;
-                console.log('✅ Evento encontrado por título/data, ID:', eventoExistente.id);
-            }
-        }
-        
-        if (!eventoExistente) {
+        if (buscaError || !eventoExistente) {
+            console.error('❌ Evento não encontrado:', buscaError);
             showToast('Evento não encontrado', 'error');
             return;
         }
         
         console.log('🔍 Editando evento ID:', eventoExistente.id);
-        console.log('Google ID:', eventoExistente?.google_event_id);
+        console.log('📌 Título atual:', eventoExistente.titulo);
+        console.log('🔑 Google ID:', eventoExistente.google_event_id);
         
-        // ATUALIZAR no App
+        // 🔴 APENAS ATUALIZAR (NUNCA CRIAR)
         const { error: updateError } = await App.supabase
             .from('eventos')
             .update({
@@ -11443,8 +11426,8 @@ function garantirNomeUsuario(nome) {
         
         console.log('✅ Evento atualizado no App');
         
-        // ATUALIZAR no Google
-        if (eventoExistente?.google_event_id) {
+        // 🔴 ATUALIZAR NO GOOGLE
+        if (eventoExistente.google_event_id) {
             console.log('🔄 Enviando atualização para o Google...');
             
             const { data: googleToken } = await App.supabase
@@ -11454,8 +11437,6 @@ function garantirNomeUsuario(nome) {
                 .single();
             
             if (googleToken && googleToken.calendar_id) {
-                const calendarId = googleToken.calendar_id;
-                
                 const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
                 let startObj, endObj;
                 
@@ -11482,7 +11463,7 @@ function garantirNomeUsuario(nome) {
                 };
                 
                 const updateResponse = await fetch(
-                    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventoExistente.google_event_id}`,
+                    `https://www.googleapis.com/calendar/v3/calendars/${googleToken.calendar_id}/events/${eventoExistente.google_event_id}`,
                     {
                         method: 'PUT',
                         headers: { 'Authorization': `Bearer ${googleToken.access_token}`, 'Content-Type': 'application/json' },
@@ -11494,11 +11475,9 @@ function garantirNomeUsuario(nome) {
                     console.log('✅ Evento atualizado no Google');
                 } else {
                     const errorText = await updateResponse.text();
-                    console.error('❌ Erro ao atualizar no Google:', updateResponse.status, errorText);
+                    console.error('❌ Erro no Google:', updateResponse.status, errorText);
                 }
             }
-        } else {
-            console.log('⚠️ Evento não tem google_event_id, será criado no Google na próxima sincronização');
         }
         
         showToast('Evento atualizado!', 'success');
@@ -11507,6 +11486,21 @@ function garantirNomeUsuario(nome) {
         await carregarDados(true);
         await atualizarCalendario();
         await mostrarConteudo();
+        
+        // 🔴 DELETAR O EVENTO DUPLICADO SE EXISTIR
+        const { data: duplicados } = await App.supabase
+            .from('eventos')
+            .select('id')
+            .eq('user_id', App.currentUser.id)
+            .eq('google_event_id', eventoExistente.google_event_id)
+            .neq('id', eventoExistente.id);
+        
+        if (duplicados && duplicados.length > 0) {
+            console.log(`🗑️ Deletando ${duplicados.length} evento(s) duplicado(s)`);
+            for (const dup of duplicados) {
+                await App.supabase.from('eventos').delete().eq('id', dup.id);
+            }
+        }
         
     } catch (error) {
         console.error('Erro ao editar evento:', error);
@@ -18840,4 +18834,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    205
+    207

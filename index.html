@@ -9249,7 +9249,7 @@ function atualizarTipoFimEvento() {
                 
                 await App.supabase.from('eventos').insert({
                     user_id: App.currentUser.id,
-                    usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
+                    usuario_familia_id: App.usuarioAtual.id,  // 🔴 LINHA IMPORTANTE
                     titulo: titulo,
                     descricao: desc || '',
                     dia: dia,
@@ -9294,7 +9294,7 @@ function atualizarTipoFimEvento() {
             
             let regraData = {
                 user_id: App.currentUser.id,
-                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
+                usuario_familia_id: App.usuarioAtual.id,  // 🔴 LINHA IMPORTANTE
                 titulo_base: titulo,
                 descricao: desc || '',
                 dia: diaEvento,

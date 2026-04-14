@@ -12102,10 +12102,46 @@ function confirmarExclusao(id, tipo, isRecorrente, regraId, dia, mes, ano, isInd
 
 async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes, ano, isIndividual, individualId) {
     try {
-        console.log('🔵 Executando exclusão simples de evento');
+        console.log('🔵 Executando exclusão simples de evento ID:', id);
         
+        // 🔴 BUSCAR O GOOGLE EVENT ID ANTES DE DELETAR
+        const { data: eventoGoogle } = await App.supabase
+            .from('eventos')
+            .select('google_event_id')
+            .eq('id', id)
+            .single();
+        
+        // 🔴 DELETAR DO GOOGLE CALENDAR
+        if (eventoGoogle && eventoGoogle.google_event_id) {
+            console.log(`🗑️ Deletando evento do Google Calendar: ${eventoGoogle.google_event_id}`);
+            
+            const { data: googleToken } = await App.supabase
+                .from('google_tokens')
+                .select('access_token')
+                .eq('usuario_familia_id', App.usuarioAtual.id)
+                .single();
+            
+            if (googleToken) {
+                const calendarId = 'a57da2995830c0282d6bc5dcd7851ec10fc9410801fb3fddebfb73ea53b1918e@group.calendar.google.com';
+                
+                const deleteRes = await fetch(
+                    `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventoGoogle.google_event_id}`,
+                    {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${googleToken.access_token}` }
+                    }
+                );
+                
+                if (deleteRes.ok) {
+                    console.log(`✅ Evento deletado do Google`);
+                } else {
+                    console.log(`⚠️ Erro ao deletar do Google: ${deleteRes.status}`);
+                }
+            }
+        }
+        
+        // 🔴 DELETAR DO APP
         if (isRecorrente && regraId) {
-            // Criar exceção para excluir apenas esta ocorrência
             let dataExcecao = dataParaString(ano, mes, dia);
             await App.supabase.from('excecoes_recorrencia').insert({
                 user_id: App.currentUser.id,
@@ -12123,9 +12159,6 @@ async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes
         await registrarHistorico('exclusao_evento', `Evento excluído`, { id, usuario: App.usuarioAtual });
         showToast('Evento excluído!', 'success');
         
-        await sincronizarGoogleAutomatico();
-        
-        fecharModal();
         await carregarDados(true);
         await atualizarCalendario();
         await mostrarConteudo();
@@ -12135,6 +12168,87 @@ async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes
         showToast('Erro: ' + error.message, 'error');
     }
 }
+
+
+
+
+
+async function verificarEventosDeletadosNoGoogle() {
+    const supabaseClient = App.supabase;
+    const userId = App.currentUser?.id;
+    
+    if (!userId || !App.usuarioAtual) return;
+    
+    const { data: googleToken } = await supabaseClient
+        .from('google_tokens')
+        .select('access_token')
+        .eq('usuario_familia_id', App.usuarioAtual.id)
+        .maybeSingle();
+    
+    if (!googleToken) return;
+    
+    const calendarId = 'a57da2995830c0282d6bc5dcd7851ec10fc9410801fb3fddebfb73ea53b1918e@group.calendar.google.com';
+    
+    try {
+        // Buscar eventos do Google (últimos 30 dias)
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        
+        const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?timeMin=${trintaDiasAtras.toISOString()}&maxResults=100`,
+            { headers: { 'Authorization': `Bearer ${googleToken.access_token}` } }
+        );
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const googleEventIds = new Set();
+        
+        // Coletar IDs dos eventos no Google
+        for (const item of data.items || []) {
+            const description = item.description || '';
+            const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
+            if (myLifeIdMatch) {
+                googleEventIds.add(parseInt(myLifeIdMatch[1]));
+            }
+        }
+        
+        // Buscar eventos do App que têm google_event_id
+        const { data: eventosApp } = await supabaseClient
+            .from('eventos')
+            .select('id, google_event_id')
+            .eq('user_id', userId)
+            .eq('usuario_familia_id', App.usuarioAtual.id)
+            .not('google_event_id', 'is', null);
+        
+        // Verificar quais eventos não existem mais no Google
+        let deletados = 0;
+        for (const evento of eventosApp || []) {
+            if (!googleEventIds.has(evento.id)) {
+                console.log(`🗑️ Evento ${evento.id} não existe mais no Google, deletando do App`);
+                await supabaseClient
+                    .from('eventos')
+                    .delete()
+                    .eq('id', evento.id)
+                    .eq('user_id', userId);
+                deletados++;
+            }
+        }
+        
+        if (deletados > 0) {
+            console.log(`✅ ${deletados} eventos removidos do App (deletados no Google)`);
+            await carregarDados(true);
+            await atualizarCalendario();
+            await mostrarConteudo();
+        }
+        
+    } catch (error) {
+        console.error('Erro ao verificar eventos deletados:', error);
+    }
+}
+
+
+
 
 
 
@@ -16678,11 +16792,10 @@ async function sincronizarGoogleParaMyLife() {
         }
     }
     
-    // 🔴 Usar calendar_id específico do usuário ou criar um novo
+    // 🔴 USAR O CALENDÁRIO DO USUÁRIO
     let calendarId = googleToken.calendar_id;
     
     if (!calendarId) {
-        // Buscar ou criar calendário "My Life - [Nome do Usuário]"
         const calendarName = `My Life - ${App.usuarioAtual.apelido || App.usuarioAtual.nome}`;
         
         const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
@@ -16818,6 +16931,7 @@ async function sincronizarGoogleParaMyLife() {
                     .from('eventos')
                     .insert({
                         user_id: userId,
+                        usuario_familia_id: App.usuarioAtual.id,
                         titulo: titulo,
                         descricao: descricao,
                         local: local,
@@ -16827,8 +16941,7 @@ async function sincronizarGoogleParaMyLife() {
                         dia: dia,
                         is_recorrente: false,
                         added_by: 'Google Calendar',
-                        google_event_id: item.id,
-                        usuario_familia_id: App.usuarioAtual.id  // 🔴 NOVO
+                        google_event_id: item.id
                     });
                 
                 if (!insertError) criados++;
@@ -16841,6 +16954,9 @@ async function sincronizarGoogleParaMyLife() {
             await atualizarCalendario();
             await mostrarConteudo();
         }
+        
+        // 🔴 VERIFICAR EVENTOS DELETADOS NO GOOGLE
+        await verificarEventosDeletadosNoGoogle();
         
     } catch (error) {
         console.error('Erro no polling:', error);

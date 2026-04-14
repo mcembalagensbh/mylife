@@ -11387,7 +11387,6 @@ function garantirNomeUsuario(nome) {
     }
 
     try {
-        // Buscar o evento original
         const { data: eventoExistente } = await App.supabase
             .from('eventos')
             .select('*')
@@ -11419,7 +11418,7 @@ function garantirNomeUsuario(nome) {
         
         console.log('✅ Evento atualizado no App');
         
-        // ATUALIZAR no Google se tiver google_event_id
+        // ATUALIZAR no Google
         if (eventoExistente?.google_event_id) {
             console.log('🔄 Enviando atualização para o Google...');
             
@@ -11432,12 +11431,17 @@ function garantirNomeUsuario(nome) {
             if (googleToken && googleToken.calendar_id) {
                 const calendarId = googleToken.calendar_id;
                 
-                // Formatar data para o Google
                 const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
                 let startObj, endObj;
                 
                 if (hora && hora !== '') {
-                    const dateTimeStr = `${dataStr}T${hora}:00-03:00`;
+                    // 🔴 CORREÇÃO: Limpar formato da hora
+                    let horaLimpa = hora;
+                    if (horaLimpa.split(':').length > 2) {
+                        const partes = horaLimpa.split(':');
+                        horaLimpa = `${partes[0]}:${partes[1]}`;
+                    }
+                    const dateTimeStr = `${dataStr}T${horaLimpa}:00-03:00`;
                     startObj = { dateTime: dateTimeStr, timeZone: 'America/Sao_Paulo' };
                     endObj = { dateTime: dateTimeStr, timeZone: 'America/Sao_Paulo' };
                 } else {
@@ -11452,10 +11456,6 @@ function garantirNomeUsuario(nome) {
                     start: startObj,
                     end: endObj
                 };
-                
-                console.log('Enviando para Google:', JSON.stringify(eventBody));
-                console.log('Calendar ID:', calendarId);
-                console.log('Google Event ID:', eventoExistente.google_event_id);
                 
                 const updateResponse = await fetch(
                     `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventoExistente.google_event_id}`,
@@ -11472,11 +11472,7 @@ function garantirNomeUsuario(nome) {
                     const errorText = await updateResponse.text();
                     console.error('❌ Erro ao atualizar no Google:', updateResponse.status, errorText);
                 }
-            } else {
-                console.log('⚠️ Token ou calendar_id não encontrado');
             }
-        } else {
-            console.log('⚠️ Evento não tem google_event_id, não será enviado ao Google');
         }
         
         showToast('Evento atualizado!', 'success');
@@ -18818,4 +18814,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    202
+    201

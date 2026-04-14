@@ -887,12 +887,26 @@
         }
 
         .item-details {
-            font-size: .8em;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: var(--gray)
-        }
+    font-size: .75em;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    color: var(--gray);
+    line-height: 1.3;
+    margin-top: 2px;
+}
+
+/* Estilo específico para a informação de data de término */
+.item-details .termina-em {
+    display: inline-block;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-left: 4px;
+    white-space: normal;
+    word-break: keep-all;
+}
 
         .item-value {
             font-weight: 600;
@@ -5486,7 +5500,7 @@ function calcularUltimaDataEvento(regra) {
                 let ultimaData = calcularUltimaDataConta(regra);
                 if (ultimaData) {
                     let dataFormatada = ultimaData.toLocaleDateString('pt-BR');
-                    infoUltimaData = `<span style="font-size: 10px; color: #888; margin-left: 6px;">(Termina em: ${dataFormatada})</span>`;
+                    infoUltimaData = `<span class="termina-em" style="font-size: 10px; color: #555; margin-left: 6px; display: inline-block; background: #f0f0f0; padding: 2px 6px; border-radius: 12px;">Termina: ${dataFormatada}</span>`;
                 } else {
                     // Se for indeterminada, mostrar "(sem previsão de término)"
                     infoUltimaData = `<span style="font-size: 10px; color: #888; margin-left: 6px;"></span>`;

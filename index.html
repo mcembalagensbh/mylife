@@ -17001,7 +17001,7 @@ async function init() {
                 await mostrarConteudo();
                 
                 carregarDados(true);
-                iniciarPollingGoogle();
+                // iniciarPollingGoogle();  // 🔴 DESATIVADO - Sincronização manual apenas
             } else {
                 await carregarDados(true);
 
@@ -17020,7 +17020,7 @@ async function init() {
 
                 await atualizarCalendario();
                 await mostrarConteudo();
-                // iniciarPollingGoogle();  // DESATIVADO - Sincronização manual apenas
+                // iniciarPollingGoogle();  // 🔴 DESATIVADO - Sincronização manual apenas
             }
 
             // VERIFICAR USUÁRIO EM SEGUNDO PLANO (NÃO BLOQUEIA O CARREGAMENTO)
@@ -17036,7 +17036,7 @@ async function init() {
             // ADICIONAR INDICADOR DE CONEXÃO (MODO OFFLINE)
             criarIndicadorConexao();
             atualizarIndicadorConexao();
-            iniciarPollingGoogle();
+            // iniciarPollingGoogle();  // 🔴 DESATIVADO - Sincronização manual apenas
             
             // 🔴 INICIAR VERIFICAÇÃO DE SESSÃO PARA PLANO GRÁTIS
             iniciarVerificacaoSessao();
@@ -17106,7 +17106,7 @@ async function init() {
                     
                     criarIndicadorConexao();
                     atualizarIndicadorConexao();
-                    iniciarPollingGoogle();
+                    // iniciarPollingGoogle();  // 🔴 DESATIVADO - Sincronização manual apenas
                     
                     // 🔴 MOSTRAR ANÚNCIO APÓS LOGIN
                     setTimeout(() => {
@@ -18379,5 +18379,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-
-161
+163

@@ -7617,7 +7617,6 @@ async function salvarNovaConta() {
             
             let dataInicio = dataParaString(ano, mes, dia);
             
-            // 🔴 REMOVIDO usuario_familia_id
             let { data, error } = await App.supabase.from('contas').insert({
                 user_id: App.currentUser.id,
                 descricao: descricao,
@@ -7702,7 +7701,6 @@ async function salvarNovaConta() {
             
             const nomeUsuarioString = String(nomeUsuario);
             
-            // 🔴 REMOVIDO usuario_familia_id
             let regraData = {
                 user_id: App.currentUser.id,
                 descricao_base: descricao,
@@ -7732,6 +7730,7 @@ async function salvarNovaConta() {
         verificarNotificacoes({ descricao, valor }, 'contas');
         await registrarHistorico('criacao_conta', `Conta criada: ${descricao}`, { descricao, valor, frequencia, usuario: nomeUsuario });
         
+        // 🔴 SINCRONIZAR AUTOMATICAMENTE
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -9099,6 +9098,7 @@ async function salvarNovoEvento() {
         
         showToast('Evento salvo com sucesso!', 'success');
         
+        // 🔴 SINCRONIZAR AUTOMATICAMENTE
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -18672,4 +18672,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    201
+    212

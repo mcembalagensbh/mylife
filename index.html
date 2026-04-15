@@ -10323,6 +10323,28 @@ function abrirModalGoogleAgenda() {
         `;
     }
     
+    function verificarOpcoesMarcadas() {
+        const syncEventos = document.getElementById('syncEventosModal')?.checked;
+        const syncTarefas = document.getElementById('syncTarefasModal')?.checked;
+        const syncContas = document.getElementById('syncContasModal')?.checked;
+        return syncEventos || syncTarefas || syncContas;
+    }
+    
+    function mostrarPopupNenhumaOpcao() {
+        const mensagem = `
+            <div style="text-align: center; padding: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--warning); margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px;">Nenhuma opção selecionada</h3>
+                <p style="margin-bottom: 20px; color: var(--gray);">
+                    Você precisa selecionar <strong>pelo menos um item</strong> para sincronizar.<br><br>
+                    Escolha entre <strong>Eventos</strong>, <strong>Tarefas</strong> ou <strong>Contas</strong>.
+                </p>
+                <button onclick="fecharModal()" class="btn btn-primary">Entendi</button>
+            </div>
+        `;
+        abrirModal('Atenção', 'fa-exclamation-triangle', mensagem);
+    }
+    
     let conteudo = `
         <div style="padding: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef;">
@@ -10344,7 +10366,7 @@ function abrirModalGoogleAgenda() {
                 
                 <!-- O que sincronizar -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-weight: 500; font-size: 13px; margin-bottom: 10px;">📋 Sincronizar:</div>
+                    <div style="font-weight: 500; font-size: 13px; margin-bottom: 10px;">📋 Sincronizar (mínimo 1 opção):</div>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input type="checkbox" id="syncEventosModal" ${configAtual.sincronizar_eventos ? 'checked' : ''}>
@@ -10432,8 +10454,13 @@ function abrirModalGoogleAgenda() {
         }
     }, 100);
     
-    // Evento: Conectar
+    // Evento: Conectar (com validação)
     document.getElementById('btnConectarGoogleModal').onclick = async () => {
+        if (!verificarOpcoesMarcadas()) {
+            mostrarPopupNenhumaOpcao();
+            return;
+        }
+        
         try {
             const { data: { session } } = await App.supabase.auth.getSession();
             const state = JSON.stringify({
@@ -10459,8 +10486,13 @@ function abrirModalGoogleAgenda() {
         }
     };
     
-    // Evento: Salvar alterações
+    // Evento: Salvar alterações (com validação)
     document.getElementById('btnSalvarConfigModal').onclick = async () => {
+        if (!verificarOpcoesMarcadas()) {
+            mostrarPopupNenhumaOpcao();
+            return;
+        }
+        
         const syncEventos = document.getElementById('syncEventosModal').checked;
         const syncTarefas = document.getElementById('syncTarefasModal').checked;
         const syncContas = document.getElementById('syncContasModal').checked;
@@ -18621,4 +18653,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    208
+    209

@@ -17089,6 +17089,9 @@ async function sincronizarGoogleParaMyLife() {
             await atualizarCalendario();
             await mostrarConteudo();
         }
+
+        // 🔴 VERIFICAR EVENTOS DELETADOS NO GOOGLE
+await verificarEventosDeletadosNoGoogle();
         
     } catch (error) {
         console.error('Erro no polling:', error);
@@ -18847,4 +18850,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    202
+    203

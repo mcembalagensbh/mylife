@@ -16885,7 +16885,7 @@ async function sincronizarGoogleParaMyLife() {
         }
     }
     
-    // 🔴 BUSCAR CALENDÁRIO EXISTENTE (NUNCA CRIAR DUPLICADO)
+    // Buscar calendário
     let calendarId = googleToken.calendar_id;
     
     if (!calendarId) {
@@ -16963,6 +16963,9 @@ async function sincronizarGoogleParaMyLife() {
         let atualizados = 0;
         let criados = 0;
         
+        // Coleção de IDs de eventos do Google para verificação de deletados
+        const googleEventIds = new Set();
+        
         for (const item of items) {
             const description = item.description || '';
             const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
@@ -16994,6 +16997,7 @@ async function sincronizarGoogleParaMyLife() {
             
             if (myLifeIdMatch) {
                 const myLifeId = parseInt(myLifeIdMatch[1]);
+                googleEventIds.add(myLifeId);
                 console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}"`);
                 
                 await supabaseClient
@@ -17023,13 +17027,14 @@ async function sincronizarGoogleParaMyLife() {
                     .maybeSingle();
                 
                 if (existente) {
+                    googleEventIds.add(existente.id);
                     await supabaseClient
                         .from('eventos')
                         .update({ google_event_id: item.id })
                         .eq('id', existente.id);
                     atualizados++;
                 } else {
-                    await supabaseClient
+                    const { data: newEvent } = await supabaseClient
                         .from('eventos')
                         .insert({
                             user_id: userId,
@@ -17043,14 +17048,43 @@ async function sincronizarGoogleParaMyLife() {
                             is_recorrente: false,
                             added_by: 'Google Calendar',
                             google_event_id: item.id
-                        });
-                    criados++;
+                        })
+                        .select();
+                    if (newEvent) {
+                        googleEventIds.add(newEvent[0].id);
+                        criados++;
+                    }
                 }
             }
         }
         
-        if (criados > 0 || atualizados > 0) {
-            console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${atualizados} atualizados`);
+        // 🔴 VERIFICAR EVENTOS DELETADOS NO GOOGLE
+        const { data: eventosApp } = await supabaseClient
+            .from('eventos')
+            .select('id, google_event_id')
+            .eq('user_id', userId)
+            .eq('usuario_familia_id', App.usuarioAtual.id)
+            .not('google_event_id', 'is', null);
+        
+        let deletados = 0;
+        for (const evento of eventosApp || []) {
+            if (!googleEventIds.has(evento.id)) {
+                console.log(`🗑️ Evento ${evento.id} não existe mais no Google, deletando do App`);
+                await supabaseClient
+                    .from('eventos')
+                    .delete()
+                    .eq('id', evento.id)
+                    .eq('user_id', userId);
+                deletados++;
+            }
+        }
+        
+        if (deletados > 0) {
+            console.log(`✅ ${deletados} eventos removidos do App (deletados no Google)`);
+        }
+        
+        if (criados > 0 || atualizados > 0 || deletados > 0) {
+            console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${atualizados} atualizados, ${deletados} deletados`);
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();

@@ -7617,9 +7617,9 @@ async function salvarNovaConta() {
             
             let dataInicio = dataParaString(ano, mes, dia);
             
+            // 🔴 REMOVIDO usuario_familia_id
             let { data, error } = await App.supabase.from('contas').insert({
                 user_id: App.currentUser.id,
-                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                 descricao: descricao,
                 valor: valor,
                 valor_pago: 0,
@@ -7702,9 +7702,9 @@ async function salvarNovaConta() {
             
             const nomeUsuarioString = String(nomeUsuario);
             
+            // 🔴 REMOVIDO usuario_familia_id
             let regraData = {
                 user_id: App.currentUser.id,
-                usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
                 descricao_base: descricao,
                 valor: valor,
                 dia_vencimento: diaVencimento,
@@ -9143,193 +9143,14 @@ function atualizarTipoFimEvento() {
             fecharSeletorIcones();
         }
 
-    async function salvarNovoEvento() {
-    let titulo = document.getElementById('eventoTitulo')?.value.trim();
-    let desc = document.getElementById('eventoDescricao')?.value.trim();
-    let hora = document.getElementById('eventoHora')?.value;
-    let local = document.getElementById('eventoLocal')?.value.trim();
-    let icone = document.getElementById('eventoIcone')?.value || 'fa-star';
-    let corIcone = document.getElementById('eventoCorIcone')?.value || '#ffd700';
-    let frequencia = document.getElementById('eventoFrequencia')?.value;
-
-    if (!titulo) {
-        showToast('Digite o título do evento', 'warning');
-        return;
-    }
-
-    const nomeUsuario = App.usuarioAtual?.apelido || App.usuarioAtual?.nome || 'desconhecido';
-    
-    const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
-    
-    if (!isPremium) {
-        const { mes, ano } = getMesAnoAtual();
-        
-        if (frequencia === 'unico') {
-            const eventosUnicosMes = App.dataCache.eventos.filter(e => 
-                e.mes === mes && e.ano === ano && !e.regra_id
-            ).length;
-            
-            if (eventosUnicosMes >= 5) {
-                const mensagem = `
-                    <div style="text-align: center; padding: 10px;">
-                        <i class="fas fa-calendar-alt" style="font-size: 48px; color: var(--purple); margin-bottom: 15px;"></i>
-                        <h3 style="margin-bottom: 10px;">Limite de eventos únicos atingido</h3>
-                        <p style="margin-bottom: 15px; color: var(--gray);">
-                            O plano <strong>Grátis</strong> permite no máximo <strong>5 eventos únicos por mês</strong>.<br><br>
-                            Você já atingiu o limite deste mês.<br><br>
-                            Com o <strong style="color: var(--purple);">Plano Premium</strong> você pode criar quantos eventos quiser!
-                        </p>
-                        <div style="display: flex; gap: 10px;">
-                            <button onclick="fecharModal(); abrirModalAssinatura();" class="btn btn-primary" style="flex: 1;">
-                                <i class="fas fa-crown"></i> Quero ser Premium
-                            </button>
-                            <button onclick="fecharModal()" class="btn" style="flex: 1; background: var(--gray); color: #fff;">
-                                Cancelar
-                            </button>
-                        </div>
-                    </div>
-                `;
-                abrirModal('Apenas Premium', 'fa-crown', mensagem);
-                return;
-            }
-        } else {
-            const eventosRecorrentesAtivos = App.dataCache.regrasEventos.filter(r => r.ativo === true).length;
-            
-            if (eventosRecorrentesAtivos >= 2) {
-                const mensagem = `
-                    <div style="text-align: center; padding: 10px;">
-                        <i class="fas fa-calendar-alt" style="font-size: 48px; color: var(--purple); margin-bottom: 15px;"></i>
-                        <h3 style="margin-bottom: 10px;">Limite de eventos recorrentes atingido</h3>
-                        <p style="margin-bottom: 15px; color: var(--gray);">
-                            O plano <strong>Grátis</strong> permite no máximo <strong>2 eventos recorrentes ativos</strong>.<br><br>
-                            Você já atingiu o limite.<br><br>
-                            Com o <strong style="color: var(--purple);">Plano Premium</strong> você pode criar quantos eventos recorrentes quiser!
-                        </p>
-                        <div style="display: flex; gap: 10px;">
-                            <button onclick="fecharModal(); abrirModalAssinatura();" class="btn btn-primary" style="flex: 1;">
-                                <i class="fas fa-crown"></i> Quero ser Premium
-                            </button>
-                            <button onclick="fecharModal()" class="btn" style="flex: 1; background: var(--gray); color: #fff;">
-                                Cancelar
-                            </button>
-                        </div>
-                    </div>
-                `;
-                abrirModal('Apenas Premium', 'fa-crown', mensagem);
-                return;
-            }
-        }
-    }
-
-    try {
-        if (frequencia === 'unico') {
-            let dataInicioStr = document.getElementById('eventoDataInicioUnico')?.value;
-            let dataFimStr = document.getElementById('eventoDataFimUnico')?.value;
-            
-            if (!dataInicioStr || !dataFimStr) {
-                showToast('Selecione as datas de início e fim', 'warning');
-                return;
-            }
-            
-            let dataInicio = new Date(dataInicioStr + 'T12:00:00');
-            let dataFim = new Date(dataFimStr + 'T12:00:00');
-            
-            if (dataFim < dataInicio) {
-                showToast('Data de fim deve ser após data de início', 'warning');
-                return;
-            }
-            
-            const horaFinal = (hora && hora !== '') ? hora : null;
-            
-            let dataAtual = new Date(dataInicio);
-            while (dataAtual <= dataFim) {
-                let ano = dataAtual.getFullYear();
-                let mes = dataAtual.getMonth() + 1;
-                let dia = dataAtual.getDate();
-                
-                // 🔴 REMOVIDO usuario_familia_id
-                await App.supabase.from('eventos').insert({
-                    user_id: App.currentUser.id,
-                    titulo: titulo,
-                    descricao: desc || '',
-                    dia: dia,
-                    mes: mes,
-                    ano: ano,
-                    hora: horaFinal,
-                    local: local || null,
-                    icone: icone,
-                    cor_icone: corIcone,
-                    data_inicio: dataInicioStr,
-                    data_fim: dataFimStr,
-                    is_recorrente: false,
-                    added_by: nomeUsuario
-                });
-                
-                dataAtual.setDate(dataAtual.getDate() + 1);
-            }
-        } else {
-            let dataInicioStr = document.getElementById('eventoDataInicio')?.value;
-            let dataFimStr = null;
-            
-            if (!dataInicioStr) {
-                showToast('Selecione a data de início', 'warning');
-                return;
-            }
-            
-            let dataRadio = document.getElementById('fimDataEvento')?.checked;
-            let indeterminado = document.getElementById('fimIndeterminadoEvento')?.checked;
-            
-            if (dataRadio) {
-                dataFimStr = document.getElementById('eventoDataFim')?.value;
-                if (!dataFimStr) {
-                    showToast('Selecione a data de fim', 'warning');
-                    return;
-                }
-            }
-            
-            let dataInicio = new Date(dataInicioStr + 'T12:00:00');
-            let diaEvento = dataInicio.getDate();
-            
-            const horaFinal = (hora && hora !== '') ? hora : null;
-            
-            // 🔴 REMOVIDO usuario_familia_id
-            let regraData = {
-                user_id: App.currentUser.id,
-                titulo_base: titulo,
-                descricao: desc || '',
-                dia: diaEvento,
-                hora: horaFinal,
-                local: local || null,
-                icone: icone,
-                cor_icone: corIcone,
-                frequencia: frequencia,
-                data_inicio: dataInicioStr,
-                ativo: true,
-                added_by: nomeUsuario
-            };
-            
-            if (dataFimStr) {
-                regraData.data_fim = dataFimStr;
-            }
-            
-            await App.supabase.from('regras_eventos').insert(regraData);
-        }
-
-        verificarNotificacoes({ titulo, descricao: desc }, 'eventos');
-        await registrarHistorico('criacao_evento', `Evento criado: ${titulo}`, { titulo, icone, usuario: nomeUsuario });
-        
-        showToast('Evento salvo com sucesso!', 'success');
-        
-        await sincronizarGoogleAutomatico();
-        
-        fecharModal();
-        await carregarDados(true);
-        await atualizarCalendario();
-        await mostrarConteudo();
-        
-    } catch (error) {
-        console.error('Erro ao salvar evento:', error);
-        showToast('Erro: ' + error.message, 'error');
+    // Verificar outras funções
+const funcoes = ['salvarNovaTarefa', 'salvarNovoGasto', 'editarConta', 'editarEvento', 'editarTarefa'];
+for (const fn of funcoes) {
+    if (typeof window[fn] === 'function') {
+        const tem = window[fn].toString().includes('usuario_familia_id');
+        console.log(`${fn} tem usuario_familia_id?`, tem);
+    } else {
+        console.log(`${fn} não encontrada`);
     }
 }
 
@@ -16160,9 +15981,9 @@ async function salvarNovaTarefa() {
     }
     
     try {
+        // 🔴 REMOVIDO usuario_familia_id
         const { data, error } = await App.supabase.from('tarefas').insert({
             user_id: App.currentUser.id,
-            usuario_familia_id: App.usuarioAtual.id,  // 🔴 ADICIONADO
             titulo: titulo,
             descricao: descricao || null,
             responsavel_ids: responsaveisIds,
@@ -16200,7 +16021,6 @@ async function salvarNovaTarefa() {
         showToast('Erro: ' + error.message, 'error');
     }
 }
-
 
 
 
@@ -18653,4 +18473,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    210
+    211

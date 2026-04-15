@@ -16898,14 +16898,12 @@ async function sincronizarGoogleParaMyLife() {
         if (existingCalendar) {
             calendarId = existingCalendar.id;
             console.log('✅ Calendário existente REUTILIZADO:', calendarId);
-            
             await supabaseClient
                 .from('google_tokens')
                 .update({ calendar_id: calendarId })
                 .eq('usuario_familia_id', App.usuarioAtual.id);
         } else {
             console.log('📅 Nenhum calendário encontrado, criando novo...');
-            
             const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -16915,12 +16913,10 @@ async function sincronizarGoogleParaMyLife() {
                     timeZone: 'America/Sao_Paulo' 
                 })
             });
-            
             const newCalendar = await createResponse.json();
             if (createResponse.ok) {
                 calendarId = newCalendar.id;
                 console.log('📅 Novo calendário CRIADO:', calendarId);
-                
                 await supabaseClient
                     .from('google_tokens')
                     .update({ calendar_id: calendarId })
@@ -16958,8 +16954,6 @@ async function sincronizarGoogleParaMyLife() {
         
         let atualizados = 0;
         let criados = 0;
-        
-        // Coleção de IDs de eventos do Google para verificação de deletados
         const googleEventIds = new Set();
         
         for (const item of items) {
@@ -17009,9 +17003,9 @@ async function sincronizarGoogleParaMyLife() {
                     })
                     .eq('id', myLifeId)
                     .eq('user_id', userId);
-                
                 atualizados++;
             } else {
+                // 🔴 REMOVIDO filtro por usuario_familia_id
                 const { data: existente } = await supabaseClient
                     .from('eventos')
                     .select('id')
@@ -17046,7 +17040,7 @@ async function sincronizarGoogleParaMyLife() {
                             google_event_id: item.id
                         })
                         .select();
-                    if (newEvent) {
+                    if (newEvent && newEvent[0]) {
                         googleEventIds.add(newEvent[0].id);
                         criados++;
                     }
@@ -17054,12 +17048,11 @@ async function sincronizarGoogleParaMyLife() {
             }
         }
         
-        // 🔴 VERIFICAR EVENTOS DELETADOS NO GOOGLE
+        // 🔴 VERIFICAR EVENTOS DELETADOS (sem filtro por usuario_familia_id)
         const { data: eventosApp } = await supabaseClient
             .from('eventos')
             .select('id, google_event_id')
             .eq('user_id', userId)
-            .eq('usuario_familia_id', App.usuarioAtual.id)
             .not('google_event_id', 'is', null);
         
         let deletados = 0;
@@ -17075,25 +17068,17 @@ async function sincronizarGoogleParaMyLife() {
             }
         }
         
-        if (deletados > 0) {
-            console.log(`✅ ${deletados} eventos removidos do App (deletados no Google)`);
-        }
-        
         if (criados > 0 || atualizados > 0 || deletados > 0) {
             console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${atualizados} atualizados, ${deletados} deletados`);
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
         }
-
-        // 🔴 VERIFICAR EVENTOS DELETADOS NO GOOGLE
-await verificarEventosDeletadosNoGoogle();
         
     } catch (error) {
         console.error('Erro no polling:', error);
     }
 }
-
 
 
 
@@ -18846,4 +18831,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    205
+    206

@@ -12260,7 +12260,6 @@ async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes
 
 
 
-
 async function verificarEventosDeletadosNoGoogle() {
     const supabaseClient = App.supabase;
     const userId = App.currentUser?.id;
@@ -12275,7 +12274,6 @@ async function verificarEventosDeletadosNoGoogle() {
     
     if (!googleToken) return;
     
-    // 🔴 USAR O calendar_id DO BANCO
     let calendarId = googleToken.calendar_id;
     
     if (!calendarId) {
@@ -12310,17 +12308,17 @@ async function verificarEventosDeletadosNoGoogle() {
             }
         }
         
+        // 🔴 REMOVER O FILTRO por usuario_familia_id
         const { data: eventosApp } = await supabaseClient
             .from('eventos')
             .select('id, google_event_id')
             .eq('user_id', userId)
-            .eq('usuario_familia_id', App.usuarioAtual.id)
             .not('google_event_id', 'is', null);
         
         let deletados = 0;
         for (const evento of eventosApp || []) {
             if (!googleEventIds.has(evento.id)) {
-                console.log(`🗑️ Evento ${evento.id} não existe mais no Google, deletando do App`);
+                console.log(`🗑️ Evento ${evento.id} (${evento.google_event_id}) não existe mais no Google, deletando do App`);
                 await supabaseClient
                     .from('eventos')
                     .delete()
@@ -12341,7 +12339,6 @@ async function verificarEventosDeletadosNoGoogle() {
         console.error('Erro ao verificar eventos deletados:', error);
     }
 }
-
 
 
 
@@ -18850,4 +18847,4 @@ window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
 
 </body>
 </html>
-    203
+    204

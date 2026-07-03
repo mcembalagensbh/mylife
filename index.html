@@ -3286,16 +3286,18 @@ setInterval(atualizarBadgeFila, 2000);
 
 
 
+// ============================================
+// GET NOME DO USUÁRIO
+// ============================================
+
 function getNomeUsuario() {
     if (!App.usuarioAtual) return 'desconhecido';
-    // Garantir que é string e pegar o apelido ou nome
     let nome = App.usuarioAtual.apelido || App.usuarioAtual.nome;
     if (typeof nome === 'object') {
         nome = nome.apelido || nome.nome || 'desconhecido';
     }
     return String(nome || 'desconhecido');
 }
-
 
 
 
@@ -8380,6 +8382,16 @@ async function salvarNovaConta() {
             
             if (regraError) throw regraError;
             
+            // 🔴 NOVO: Sincronizar com Google se for Premium
+            if (regra && regra[0]) {
+                try {
+                    await sincronizarRegraGoogle(regra[0]);
+                    console.log(`✅ Regra ${regra[0].id} sincronizada com Google`);
+                } catch (e) {
+                    console.error('⚠️ Erro ao sincronizar regra com Google:', e);
+                }
+            }
+            
             let msg = parcelasRadio ? 
                 `Regra de conta com ${document.getElementById('contaNumParcelas')?.value} parcelas salva!` : 
                 'Regra de conta salva com sucesso!';
@@ -8390,7 +8402,6 @@ async function salvarNovaConta() {
         verificarNotificacoes({ descricao, valor }, 'contas');
         await registrarHistorico('criacao_conta', `Conta criada: ${descricao}`, { descricao, valor, frequencia, usuario: nomeUsuario });
         
-        // 🔴 SINCRONIZAR AUTOMATICAMENTE
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -9410,12 +9421,27 @@ async function salvarEdicaoConta(id, isRecorrente, regraId, dia, mes, ano) {
             }
             
             await App.supabase.from('regras_contas').update(updateData).eq('id', regraId);
+            
+            // 🔴 NOVO: Buscar a regra atualizada e sincronizar com Google
+            const { data: regraAtualizada } = await App.supabase
+                .from('regras_contas')
+                .select('*')
+                .eq('id', regraId)
+                .single();
+            
+            if (regraAtualizada) {
+                try {
+                    await sincronizarRegraGoogle(regraAtualizada);
+                    console.log(`✅ Regra ${regraAtualizada.id} atualizada no Google`);
+                } catch (e) {
+                    console.error('⚠️ Erro ao atualizar regra no Google:', e);
+                }
+            }
         }
 
         await registrarHistorico('edicao_conta', `Conta editada: ${descricao}`, { id, usuario: App.usuarioAtual });
         showToast('Conta atualizada!', 'success');
         
-        // 🔴 SINCRONIZAÇÃO AUTOMÁTICA
         await sincronizarGoogleAutomatico();
         
         fecharModal();
@@ -9428,6 +9454,7 @@ async function salvarEdicaoConta(id, isRecorrente, regraId, dia, mes, ano) {
         showToast('Erro: ' + error.message, 'error');
     }
 }
+
 
         function abrirNovoEventoUnificado() {
     let { mes, ano } = getMesAnoAtual();
@@ -10930,11 +10957,7 @@ function toggleSubmenuCalendarios() {
 // ============================================
 
 // ============================================
-// MODAL GOOGLE AGENDA - VERSÃO MODERNA
-// ============================================
-
-// ============================================
-// MODAL GOOGLE AGENDA - VERSÃO COMPLETA COM CORES NOS BOTÕES
+// abrirModalGoogleAgenda - VERSÃO INTUITIVA COMPLETA
 // ============================================
 
 function abrirModalGoogleAgenda() {
@@ -11025,28 +11048,150 @@ function abrirModalGoogleAgenda() {
         abrirModal('Atenção', 'fa-exclamation-triangle', mensagem);
     }
     
+    // ============================================
+    // FUNÇÃO PARA ATUALIZAR STATUS
+    // ============================================
+    
+    async function atualizarStatusConexao() {
+        const statusDiv = document.getElementById('googleStatusModal');
+        const statusTexto = document.getElementById('statusTexto');
+        const statusIcone = document.getElementById('statusIcone');
+        const btnConectar = document.getElementById('btnConectarGoogleModal');
+        const btnSalvar = document.getElementById('btnSalvarConfigModal');
+        const btnForcar = document.getElementById('btnForcarAtualizacaoModal');
+        const btnDesconectar = document.getElementById('btnDesconectarGoogleModal');
+        const btnSync = document.getElementById('btnSyncAuto');
+        const passo1 = document.getElementById('passo1');
+        const passo2 = document.getElementById('passo2');
+        const passo3 = document.getElementById('passo3');
+        
+        if (!statusDiv) return;
+        
+        try {
+            const { data: tokenData } = await App.supabase
+                .from('google_tokens')
+                .select('*')
+                .eq('usuario_familia_id', App.usuarioAtual?.id)
+                .maybeSingle();
+            
+            const { data: regrasPendentes } = await App.supabase
+                .from('regras_contas')
+                .select('count')
+                .eq('user_id', App.currentUser.id)
+                .eq('ativo', true)
+                .is('google_event_id', null);
+            
+            const pendentes = regrasPendentes?.[0]?.count || 0;
+            
+            if (tokenData && new Date(tokenData.expires_at) > new Date()) {
+                // CONECTADO
+                statusDiv.style.background = '#e8f5e9';
+                statusIcone.className = 'fas fa-check-circle';
+                statusIcone.style.color = '#2e7d32';
+                
+                if (pendentes > 0) {
+                    statusTexto.innerHTML = `
+                        ✅ Conectado como <strong>${App.usuarioAtual?.apelido}</strong>
+                        <br><span style="color: #e65100; font-size: 12px;">⚠️ ${pendentes} regras aguardando sincronização</span>
+                        <br><span style="color: var(--gray); font-size: 11px;">Clique em "Sincronizar Agora" para enviar</span>
+                    `;
+                    if (passo1) passo1.style.display = 'none';
+                    if (passo2) passo2.style.display = 'block';
+                    if (passo3) passo3.style.display = 'none';
+                } else {
+                    statusTexto.innerHTML = `
+                        ✅ Conectado como <strong>${App.usuarioAtual?.apelido}</strong>
+                        <br><span style="color: #2e7d32; font-size: 12px;">✅ Todas as regras sincronizadas</span>
+                        <br><span style="color: var(--gray); font-size: 11px;">Alterações futuras serão automáticas</span>
+                    `;
+                    if (passo1) passo1.style.display = 'none';
+                    if (passo2) passo2.style.display = 'none';
+                    if (passo3) passo3.style.display = 'block';
+                }
+                
+                btnConectar.style.display = 'none';
+                btnSalvar.style.display = 'block';
+                btnForcar.style.display = 'block';
+                btnDesconectar.style.display = 'block';
+                if (btnSync) btnSync.style.display = 'flex';
+                
+            } else {
+                // DESCONECTADO
+                statusDiv.style.background = '#fef7e0';
+                statusIcone.className = 'fas fa-plug';
+                statusIcone.style.color = '#f9a825';
+                statusTexto.innerHTML = `
+                    ⚠️ Não conectado ao Google Calendar
+                    <br><span style="font-size: 12px; color: var(--gray);">Clique em <strong>"Conectar"</strong> para autorizar o acesso</span>
+                `;
+                
+                btnConectar.style.display = 'block';
+                btnSalvar.style.display = 'none';
+                btnForcar.style.display = 'none';
+                btnDesconectar.style.display = 'none';
+                if (btnSync) btnSync.style.display = 'none';
+                if (passo1) passo1.style.display = 'block';
+                if (passo2) passo2.style.display = 'none';
+                if (passo3) passo3.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Erro ao verificar status:', error);
+        }
+    }
+    
+    // ============================================
+    // CONTEÚDO DO MODAL
+    // ============================================
+    
     let conteudo = `
         <div style="padding: 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef;">
+            <!-- CABEÇALHO -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea, #764ba2);">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <i class="fab fa-google" style="font-size: 24px; color: #4285f4;"></i>
+                    <i class="fab fa-google" style="font-size: 24px; color: #fff;"></i>
                     <div>
-                        <h3 style="margin: 0; font-size: 1.1rem;">Google Agenda</h3>
-                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #5f6368;">Usuário: <strong>${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}</strong></p>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Google Agenda</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 11px; color: rgba(255,255,255,0.8);">
+                            Usuário: <strong>${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}</strong>
+                        </p>
                     </div>
                 </div>
+                <button onclick="fecharModal()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">&times;</button>
             </div>
             
             <div style="padding: 20px;">
-                <!-- Status da conexão -->
+                <!-- STATUS DA CONEXÃO -->
                 <div id="googleStatusModal" style="margin-bottom: 20px; padding: 12px; background: #fef7e0; border-radius: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-plug" style="color: #f9a825;"></i>
-                    <span style="font-size: 13px;" id="statusTexto">Verificando conexão...</span>
+                    <i id="statusIcone" class="fas fa-plug" style="color: #f9a825;"></i>
+                    <span id="statusTexto" style="font-size: 13px;">Verificando conexão...</span>
+                </div>
+                
+                <!-- PASSO A PASSO -->
+                <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 1px solid #e9ecef;">
+                    <div style="font-weight: 600; font-size: 13px; margin-bottom: 10px;">📋 Como sincronizar:</div>
+                    
+                    <div id="passo1" style="display: block; padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <span style="background: #4285f4; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 8px;">1</span>
+                        <strong>Conectar</strong> - Clique em "Conectar" e autorize o Google
+                        <br><small style="color: var(--gray); font-size: 11px; margin-left: 28px;">Uma nova janela será aberta para autorização</small>
+                    </div>
+                    
+                    <div id="passo2" style="display: none; padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <span style="background: #f39c12; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 8px;">2</span>
+                        <strong>Sincronizar</strong> - Clique em "Sincronizar Agora"
+                        <br><small style="color: var(--gray); font-size: 11px; margin-left: 28px;">⚠️ Necessário apenas na primeira vez</small>
+                    </div>
+                    
+                    <div id="passo3" style="display: none; padding: 8px 0;">
+                        <span style="background: #2ecc71; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 8px;">✅</span>
+                        <strong style="color: #2e7d32;">Tudo sincronizado!</strong>
+                        <br><small style="color: var(--gray); font-size: 11px; margin-left: 28px;">As mudanças futuras serão automáticas</small>
+                    </div>
                 </div>
                 
                 <!-- O que sincronizar -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-weight: 500; font-size: 13px; margin-bottom: 10px;">📋 Sincronizar (mínimo 1 opção):</div>
+                    <div style="font-weight: 500; font-size: 13px; margin-bottom: 10px;">📋 O que sincronizar:</div>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input type="checkbox" id="syncEventosModal" ${configAtual.sincronizar_eventos ? 'checked' : ''}>
@@ -11066,7 +11211,19 @@ function abrirModalGoogleAgenda() {
                     </div>
                 </div>
                 
-                <!-- Botões -->
+                <!-- BOTÃO DE SINCRONIZAÇÃO -->
+                <div style="margin-bottom: 15px;">
+                    <button id="btnSyncAuto" onclick="executarSincronizacaoCompleta()" 
+                            style="width: 100%; padding: 12px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 8px;">
+                        <i id="btnSyncIcone" class="fas fa-sync-alt"></i>
+                        <span id="btnSyncTexto">Sincronizar Agora</span>
+                    </button>
+                    <small style="color: var(--gray); font-size: 11px; display: block; text-align: center; margin-top: 5px;">
+                        <i class="fas fa-info-circle"></i> Sincroniza todas as contas com o Google Calendar
+                    </small>
+                </div>
+                
+                <!-- BOTÕES DE AÇÃO -->
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button id="btnConectarGoogleModal" class="btn" style="background: #4285f4; color: #fff; padding: 12px; border-radius: 30px;">
                         <i class="fab fa-google"></i> Conectar
@@ -11084,8 +11241,32 @@ function abrirModalGoogleAgenda() {
                         Fechar
                     </button>
                 </div>
+                
+                <!-- INFO RODAPÉ -->
+                <div style="margin-top: 15px; padding: 10px; background: #e8f4fd; border-radius: 8px; font-size: 11px; color: var(--gray);">
+                    <i class="fas fa-info-circle" style="color: #3498db;"></i>
+                    <strong>Dica:</strong> Após autorizar o Google, volte aqui e clique em <strong>"Sincronizar Agora"</strong>. 
+                    Depois da primeira vez, tudo será automático!
+                </div>
             </div>
         </div>
+        
+        <style>
+            .cor-select {
+                transition: background 0.3s ease;
+            }
+            .cor-select option {
+                padding: 4px 8px;
+            }
+            #btnSyncAuto:hover:not(:disabled) {
+                transform: scale(1.02);
+                box-shadow: 0 2px 10px rgba(46, 204, 113, 0.3);
+            }
+            #btnSyncAuto:disabled {
+                opacity: 0.7;
+                cursor: not-allowed;
+            }
+        </style>
     `;
     
     abrirModal('', '', conteudo);
@@ -11102,44 +11283,106 @@ function abrirModalGoogleAgenda() {
         });
     }, 100);
     
-    // Verificar status da conexão
+    // ============================================
+    // VERIFICAR STATUS DA CONEXÃO
+    // ============================================
+    
     setTimeout(async () => {
+        await atualizarStatusConexao();
+    }, 200);
+    
+    // Verificar periodicamente
+    let verificadorIntervalo = setInterval(async () => {
+        const modal = document.getElementById('modalOverlay');
+        if (!modal || modal.style.display !== 'flex') {
+            clearInterval(verificadorIntervalo);
+            return;
+        }
+        await atualizarStatusConexao();
+    }, 5000);
+    
+    window.verificadorGoogleIntervalo = verificadorIntervalo;
+    
+    // ============================================
+    // FUNÇÃO DE SINCRONIZAÇÃO
+    // ============================================
+    
+    window.executarSincronizacaoCompleta = async function() {
+        const btnSync = document.getElementById('btnSyncAuto');
+        const btnTexto = document.getElementById('btnSyncTexto');
+        const btnIcone = document.getElementById('btnSyncIcone');
         const statusDiv = document.getElementById('googleStatusModal');
         const statusTexto = document.getElementById('statusTexto');
-        const btnConectar = document.getElementById('btnConectarGoogleModal');
-        const btnSalvar = document.getElementById('btnSalvarConfigModal');
-        const btnForcar = document.getElementById('btnForcarAtualizacaoModal');
-        const btnDesconectar = document.getElementById('btnDesconectarGoogleModal');
+        const statusIcone = document.getElementById('statusIcone');
         
-        const { data: tokenData } = await App.supabase
-            .from('google_tokens')
-            .select('*')
-            .eq('usuario_familia_id', App.usuarioAtual?.id)
-            .maybeSingle();
+        if (!btnSync) return;
         
-        if (tokenData && new Date(tokenData.expires_at) > new Date()) {
-            statusDiv.style.background = '#e8f5e9';
-            statusTexto.innerHTML = `✅ Conectado como ${App.usuarioAtual?.apelido}`;
-            btnConectar.style.display = 'none';
-            btnSalvar.style.display = 'block';
-            btnForcar.style.display = 'block';
-            btnDesconectar.style.display = 'block';
-        } else {
-            statusDiv.style.background = '#fef7e0';
-            statusTexto.innerHTML = `⚠️ Não conectado. Clique em "Conectar".`;
-            btnConectar.style.display = 'block';
-            btnSalvar.style.display = 'none';
-            btnForcar.style.display = 'none';
-            btnDesconectar.style.display = 'none';
+        btnSync.disabled = true;
+        btnTexto.textContent = 'Sincronizando...';
+        btnIcone.className = 'fas fa-spinner fa-spin';
+        
+        statusDiv.style.background = '#e3f2fd';
+        statusIcone.className = 'fas fa-sync-alt fa-spin';
+        statusIcone.style.color = '#0d47a1';
+        statusTexto.innerHTML = '🔄 Sincronizando regras com o Google... Aguarde.';
+        
+        try {
+            // Sincronizar regras pendentes
+            if (typeof sincronizarRegrasPendentes === 'function') {
+                await sincronizarRegrasPendentes();
+            }
+            
+            // Forçar sincronização completa
+            if (typeof forcarSincronizacaoCompleta === 'function') {
+                await forcarSincronizacaoCompleta();
+            }
+            
+            // Manter calendário atualizado
+            if (typeof manterCalendarioAtualizado === 'function') {
+                await manterCalendarioAtualizado();
+            }
+            
+            await atualizarStatusConexao();
+            
+            showToast('✅ Sincronização concluída!', 'success');
+            
+        } catch (error) {
+            console.error('Erro na sincronização:', error);
+            statusDiv.style.background = '#ffebee';
+            statusIcone.className = 'fas fa-exclamation-circle';
+            statusIcone.style.color = '#c62828';
+            statusTexto.innerHTML = '❌ Erro na sincronização: ' + error.message;
+            showToast('❌ Erro na sincronização', 'error');
+        } finally {
+            btnSync.disabled = false;
+            btnTexto.textContent = 'Sincronizar Agora';
+            btnIcone.className = 'fas fa-sync-alt';
+            setTimeout(() => {
+                if (document.getElementById('googleStatusModal')) {
+                    atualizarStatusConexao();
+                }
+            }, 1000);
         }
-    }, 100);
+    };
     
-    // Evento: Conectar (com validação)
+    // ============================================
+    // EVENTO: CONECTAR
+    // ============================================
+    
     document.getElementById('btnConectarGoogleModal').onclick = async () => {
         if (!verificarOpcoesMarcadas()) {
             mostrarPopupNenhumaOpcao();
             return;
         }
+        
+        const statusDiv = document.getElementById('googleStatusModal');
+        const statusTexto = document.getElementById('statusTexto');
+        const statusIcone = document.getElementById('statusIcone');
+        
+        statusDiv.style.background = '#fff3e0';
+        statusIcone.className = 'fas fa-spinner fa-spin';
+        statusIcone.style.color = '#e65100';
+        statusTexto.innerHTML = '🔄 Conectando ao Google... Aguarde.';
         
         try {
             const { data: { session } } = await App.supabase.auth.getSession();
@@ -11158,15 +11401,27 @@ function abrirModalGoogleAgenda() {
             
             const data = await response.json();
             if (data.url) {
-                fecharModal();
                 window.open(data.url, '_blank', 'width=600,height=700');
+                
+                statusDiv.style.background = '#e3f2fd';
+                statusIcone.className = 'fas fa-info-circle';
+                statusIcone.style.color = '#0d47a1';
+                statusTexto.innerHTML = '✅ Janela de autorização aberta. Autorize e aguarde a conexão.';
             }
         } catch (error) {
-            showToast('Erro ao conectar', 'error');
+            console.error('Erro ao conectar:', error);
+            statusDiv.style.background = '#ffebee';
+            statusIcone.className = 'fas fa-exclamation-circle';
+            statusIcone.style.color = '#c62828';
+            statusTexto.innerHTML = '❌ Erro ao conectar: ' + error.message;
+            showToast('Erro ao conectar: ' + error.message, 'error');
         }
     };
     
-    // Evento: Salvar alterações (com validação)
+    // ============================================
+    // EVENTO: SALVAR CONFIGURAÇÕES
+    // ============================================
+    
     document.getElementById('btnSalvarConfigModal').onclick = async () => {
         if (!verificarOpcoesMarcadas()) {
             mostrarPopupNenhumaOpcao();
@@ -11180,220 +11435,106 @@ function abrirModalGoogleAgenda() {
         const corTarefas = document.getElementById('corTarefasModal').value;
         const corContas = document.getElementById('corContasModal').value;
         
-        await App.supabase.from('configuracoes_sync').upsert({
-            user_id: App.currentUser.id,
-            usuario_familia_id: App.usuarioAtual.id,
-            sincronizar_eventos: syncEventos,
-            sincronizar_tarefas: syncTarefas,
-            sincronizar_contas: syncContas,
-            cor_eventos: corEventos,
-            cor_tarefas: corTarefas,
-            cor_contas: corContas,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'usuario_familia_id' });
-        
-        showToast('✅ Configurações salvas!', 'success');
-    };
-    
-    // Evento: Forçar atualização (unificado)
-    document.getElementById('btnForcarAtualizacaoModal').onclick = async () => {
-        fecharModal();
-        showToast('🔄 Forçando sincronização completa...', 'info');
-        await forcarSincronizacaoCompleta();
-        await sincronizarGoogleParaMyLife();
-        showToast('✅ Sincronização concluída!', 'success');
-    };
-    
-    // Evento: Desconectar
-    document.getElementById('btnDesconectarGoogleModal').onclick = async () => {
-        if (!confirm(`Desconectar ${App.usuarioAtual?.apelido} do Google Calendar?`)) return;
-        
-        await App.supabase.from('google_tokens').delete().eq('usuario_familia_id', App.usuarioAtual.id);
-        showToast('✅ Desconectado!', 'success');
-        fecharModal();
-        setTimeout(() => abrirModalGoogleAgenda(), 500);
-    };
-}
-
-// ============================================
-// FUNÇÃO DE SINCRONIZAÇÃO COM CORES PERSONALIZADAS
-// ============================================
-
-// ============================================
-// FUNÇÃO DE SINCRONIZAÇÃO COM CORES PERSONALIZADAS
-// ============================================
-
-async function sincronizarGoogleComCores(cores) {
-    if (!App.currentUser) {
-        showToast('Você precisa estar logado', 'warning');
-        return;
-    }
-    
-    // Verificar se o Google está conectado
-    const { data: googleToken } = await App.supabase
-        .from('google_tokens')
-        .select('*')
-        .eq('user_id', App.currentUser.id)
-        .maybeSingle();
-    
-    if (!googleToken) {
-        showToast('⚠️ Conecte o Google Calendar primeiro', 'warning');
-        abrirModalGoogleAgenda();
-        return;
-    }
-    
-    const syncEventos = document.getElementById('syncEventosModal')?.checked ?? true;
-    const syncTarefas = document.getElementById('syncTarefasModal')?.checked ?? true;
-    const syncContas = document.getElementById('syncContasModal')?.checked ?? true;
-    
-    try {
-        showToast('🔄 Salvando configurações e sincronizando...', 'info');
-        
-        // Salvar configurações no Supabase
         try {
-            const { error: upsertError } = await App.supabase
-                .from('configuracoes_sync')
-                .upsert({
-                    user_id: App.currentUser.id,
-                    sincronizar_eventos: syncEventos,
-                    sincronizar_tarefas: syncTarefas,
-                    sincronizar_contas: syncContas,
-                    cor_eventos: cores.cor_eventos,
-                    cor_tarefas: cores.cor_tarefas,
-                    cor_contas: cores.cor_contas,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
+            await App.supabase.from('configuracoes_sync').upsert({
+                user_id: App.currentUser.id,
+                usuario_familia_id: App.usuarioAtual.id,
+                sincronizar_eventos: syncEventos,
+                sincronizar_tarefas: syncTarefas,
+                sincronizar_contas: syncContas,
+                cor_eventos: corEventos,
+                cor_tarefas: corTarefas,
+                cor_contas: corContas,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'usuario_familia_id' });
             
-            if (upsertError) {
-                console.error('Erro ao salvar configurações:', upsertError);
-                showToast('Erro ao salvar configurações: ' + upsertError.message, 'warning');
-            } else {
-                console.log('✅ Configurações salvas com sucesso');
-            }
-            
-            // Atualizar cache local
             App.dataCache.configuracoesSync = {
                 sincronizar_eventos: syncEventos,
                 sincronizar_tarefas: syncTarefas,
                 sincronizar_contas: syncContas,
-                cor_eventos: cores.cor_eventos,
-                cor_tarefas: cores.cor_tarefas,
-                cor_contas: cores.cor_contas
+                cor_eventos: corEventos,
+                cor_tarefas: corTarefas,
+                cor_contas: corContas
             };
             
-        } catch (saveError) {
-            console.error('Erro ao salvar localmente:', saveError);
+            await atualizarStatusConexao();
+            showToast('✅ Configurações salvas!', 'success');
+            
+        } catch (error) {
+            showToast('Erro ao salvar: ' + error.message, 'error');
         }
+    };
+    
+    // ============================================
+    // EVENTO: FORÇAR ATUALIZAÇÃO
+    // ============================================
+    
+    document.getElementById('btnForcarAtualizacaoModal').onclick = async () => {
+        const statusDiv = document.getElementById('googleStatusModal');
+        const statusTexto = document.getElementById('statusTexto');
+        const statusIcone = document.getElementById('statusIcone');
         
-        // Obter sessão
-        const { data: { session } } = await App.supabase.auth.getSession();
-        if (!session) {
-            showToast('Faça login novamente', 'error');
-            return;
+        statusDiv.style.background = '#e3f2fd';
+        statusIcone.className = 'fas fa-sync-alt fa-spin';
+        statusIcone.style.color = '#0d47a1';
+        statusTexto.innerHTML = '🔄 Forçando sincronização completa... Aguarde.';
+        
+        try {
+            if (typeof forcarSincronizacaoCompleta === 'function') {
+                await forcarSincronizacaoCompleta();
+            }
+            await atualizarStatusConexao();
+            showToast('✅ Sincronização forçada concluída!', 'success');
+        } catch (error) {
+            statusDiv.style.background = '#ffebee';
+            statusIcone.className = 'fas fa-exclamation-circle';
+            statusIcone.style.color = '#c62828';
+            statusTexto.innerHTML = '❌ Erro: ' + error.message;
+            showToast('❌ Erro: ' + error.message, 'error');
         }
+    };
+    
+    // ============================================
+    // EVENTO: DESCONECTAR
+    // ============================================
+    
+    document.getElementById('btnDesconectarGoogleModal').onclick = async () => {
+        if (!confirm(`Desconectar ${App.usuarioAtual?.apelido} do Google Calendar?`)) return;
         
-        // Chamar a Edge Function para sincronizar
-        const response = await fetch('https://rirvrrlgjetsgwhqqfvq.supabase.co/functions/v1/sincronizar-google', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                cores_personalizadas: {
-                    cor_eventos: cores.cor_eventos,
-                    cor_tarefas: cores.cor_tarefas,
-                    cor_contas: cores.cor_contas
-                }
-            })
-        });
+        const statusDiv = document.getElementById('googleStatusModal');
+        const statusTexto = document.getElementById('statusTexto');
+        const statusIcone = document.getElementById('statusIcone');
         
-        const data = await response.json();
+        statusDiv.style.background = '#fff3e0';
+        statusIcone.className = 'fas fa-spinner fa-spin';
+        statusIcone.style.color = '#e65100';
+        statusTexto.innerHTML = '🔄 Desconectando...';
         
-        if (response.ok && data.success) {
-            let mensagem = '';
-            let icone = 'fa-check-circle';
-            let corIcone = '#2e7d32';
-            
-            if (data.criados > 0) mensagem += `${data.criados} criados, `;
-            if (data.atualizados > 0) mensagem += `${data.atualizados} atualizados, `;
-            if (data.deletados > 0) mensagem += `${data.deletados} removidos`;
-            if (mensagem.endsWith(', ')) mensagem = mensagem.slice(0, -2);
-            if (mensagem === '') mensagem = 'Sincronização concluída!';
-            
-            // Modal de sucesso
-            const resultadoHtml = `
-                <div style="padding: 0;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef;">
-                        <div class="modal-title">
-                            <i class="fas fa-sync-alt"></i> Sincronização
-                        </div>
-                        <button onclick="fecharModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #5f6368;">&times;</button>
-                    </div>
-                    <div style="text-align: center; padding: 20px;">
-                        <i class="fas ${icone}" style="font-size: 48px; color: ${corIcone}; margin-bottom: 15px;"></i>
-                        <h3 style="margin-bottom: 10px;">✅ Sincronização concluída!</h3>
-                        <p style="margin-bottom: 20px; color: var(--gray);">
-                            ${mensagem}
-                        </p>
-                        <button onclick="fecharModal()" class="btn btn-primary" style="padding: 10px 30px;">Fechar</button>
-                    </div>
-                </div>
-            `;
-            
-            abrirModal('Sincronização', 'fa-sync-alt', resultadoHtml);
-            
-            // 🔴 INICIAR POLLING PARA BUSCAR EVENTOS DO GOOGLE
-            setTimeout(() => {
-                sincronizarGoogleParaMyLife();
-            }, 2000);
-            
-        } else {
-            // Modal de erro
-            const erroHtml = `
-                <div style="padding: 0;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef;">
-                        <div class="modal-title">
-                            <i class="fas fa-exclamation-triangle"></i> Erro
-                        </div>
-                        <button onclick="fecharModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #5f6368;">&times;</button>
-                    </div>
-                    <div style="text-align: center; padding: 20px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 15px;"></i>
-                        <h3 style="margin-bottom: 10px;">Erro na sincronização</h3>
-                        <p style="margin-bottom: 20px; color: var(--gray);">
-                            ${data.error || 'Erro desconhecido'}
-                        </p>
-                        <button onclick="fecharModal()" class="btn btn-primary" style="padding: 10px 30px;">Fechar</button>
-                    </div>
-                </div>
-            `;
-            abrirModal('Erro', 'fa-exclamation-triangle', erroHtml);
+        try {
+            await App.supabase.from('google_tokens').delete().eq('usuario_familia_id', App.usuarioAtual.id);
+            await atualizarStatusConexao();
+            showToast('✅ Desconectado!', 'success');
+        } catch (error) {
+            statusDiv.style.background = '#ffebee';
+            statusIcone.className = 'fas fa-exclamation-circle';
+            statusIcone.style.color = '#c62828';
+            statusTexto.innerHTML = '❌ Erro ao desconectar: ' + error.message;
+            showToast('❌ Erro ao desconectar', 'error');
         }
-        
-    } catch (error) {
-        console.error('Erro completo:', error);
-        
-        const erroHtml = `
-            <div style="padding: 0;">
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e9ecef;">
-                    <div class="modal-title">
-                        <i class="fas fa-exclamation-triangle"></i> Erro
-                    </div>
-                    <button onclick="fecharModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #5f6368;">&times;</button>
-                </div>
-                <div style="text-align: center; padding: 20px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 15px;"></i>
-                    <h3 style="margin-bottom: 10px;">Erro na sincronização</h3>
-                    <p style="margin-bottom: 20px; color: var(--gray);">
-                        ${error.message}
-                    </p>
-                    <button onclick="fecharModal()" class="btn btn-primary" style="padding: 10px 30px;">Fechar</button>
-                </div>
-            </div>
-        `;
-        abrirModal('Erro', 'fa-exclamation-triangle', erroHtml);
-    }
+    };
+    
+    // Limpar intervalo quando o modal for fechado
+    const modalOverlay = document.getElementById('modalOverlay');
+    const observer = new MutationObserver(() => {
+        if (modalOverlay.style.display !== 'flex') {
+            if (window.verificadorGoogleIntervalo) {
+                clearInterval(window.verificadorGoogleIntervalo);
+                window.verificadorGoogleIntervalo = null;
+            }
+            observer.disconnect();
+        }
+    });
+    observer.observe(modalOverlay, { attributes: true, attributeFilter: ['style'] });
 }
 
 
@@ -12067,104 +12208,8 @@ function fecharModalInfoEConfirmar() {
 // CONFIRMAR PAGAMENTO - VERSÃO OTIMISTA (UI IMEDIATA)
 // ============================================
 
-// ============================================
-// CONFIRMAR PAGAMENTO - VERSÃO OTIMISTA (UI IMEDIATA)
-// ============================================
 
-async function confirmarPagamento(id, desc, regraId, dia, mes, ano, isRecorrente) {
-    if (App.processandoPagamento) {
-        showToast('Processando pagamento, aguarde...', 'warning');
-        return;
-    }
-    
-    let valorPago = parseCurrency(document.getElementById('pagamentoValorConta')?.value);
-    
-    if (isNaN(valorPago)) {
-        showToast('Digite um valor válido', 'warning');
-        return;
-    }
-    
-    const contaDesc = desc;
-    
-    // 🔥 PASSO 1: ATUALIZAR UI IMEDIATAMENTE (Optimistic UI)
-    
-    // 1.1 Atualizar no cache local
-    let contaAtualizada = null;
-    
-    if (isRecorrente && regraId && regraId !== 'undefined') {
-        // Para conta recorrente
-        const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-        const contasRecorrentes = App.dataCache.contas.filter(c => c.regra_id == regraId);
-        contaAtualizada = contasRecorrentes.find(c => {
-            const dataConta = `${c.ano}-${String(c.mes).padStart(2, '0')}-${String(c.dia).padStart(2, '0')}`;
-            return dataConta === dataStr;
-        });
-        
-        if (contaAtualizada) {
-            contaAtualizada.valor_pago = valorPago;
-            contaAtualizada.status = 'paga';
-            contaAtualizada.data_pagamento = new Date().toISOString();
-        }
-    } else {
-        // Conta única
-        contaAtualizada = App.dataCache.contas.find(c => c.id == id);
-        if (contaAtualizada) {
-            contaAtualizada.valor_pago = valorPago;
-            contaAtualizada.status = 'paga';
-            contaAtualizada.data_pagamento = new Date().toISOString();
-        }
-    }
-    
-    // 1.2 Atualizar saldo no cache local
-    if (App.saldoCentral.id && valorPago > 0) {
-        App.saldoCentral.valor = App.saldoCentral.valor - valorPago;
-        atualizarSaldoHeader();
-    }
-    
-    // 1.3 FORÇAR ATUALIZAÇÃO VISUAL IMEDIATA
-    // Recarregar o calendário e a lista de contas instantaneamente
-    await atualizarCalendario();
-    
-    // Atualizar a área de conteúdo (lista de contas)
-    let { mes: mesAtual, ano: anoAtual } = getMesAnoAtual();
-    let content = document.getElementById('dynamicContent');
-    await renderizarTudo(content, mesAtual, anoAtual);
-    
-    // Forçar re-renderização dos cards para aplicar a classe "paga" (tachado + transparência)
-    document.querySelectorAll('.item-card').forEach(card => {
-        if (card.classList) {
-            // Forçar reflow para atualizar estilos
-            card.style.display = 'none';
-            card.offsetHeight; // força reflow
-            card.style.display = '';
-        }
-    });
-    
-    // Mostrar feedback rápido (toast pequeno, some rápido)
-    if (valorPago === 0) {
-        showToast(`✅ "${contaDesc}" marcada como paga!`, 'success', 1200);
-    } else {
-        showToast(`✅ Pagamento de ${formatCurrency(valorPago)} confirmado!`, 'success', 1200);
-    }
-    
-    // 🔥 PASSO 2: ADICIONAR À FILA PARA PROCESSAR EM BACKGROUND
-    adicionarNaFila('pagar_conta', {
-        id: id,
-        valorPago: valorPago,
-        desc: contaDesc,
-        regraId: regraId,
-        dia: dia,
-        mes: mes,
-        ano: ano,
-        isRecorrente: isRecorrente
-    });
-    
-    // 🔥 PASSO 3: FECHAR O MODAL DE PAGAMENTO
-    fecharModal();
-    
-    // 🔥 PASSO 4: DISPARAR PROCESSAMENTO DA FILA EM BACKGROUND
-    // (já é feito automaticamente pelo sistema de fila)
-}
+
 
         // ============================================
 // ABRIR MODAL DESFAZER PAGAMENTO
@@ -12189,18 +12234,15 @@ function abrirModalDesfazerPagamento(id, desc, valor, regraId, dia, mes, ano, is
 // ============================================
 
 // ============================================
-// CONFIRMAR DESFAZER PAGAMENTO - VERSÃO OTIMISTA (UI IMEDIATA)
+// confirmarDesfazerPagamento - RECRIAR NO GOOGLE
 // ============================================
 
 async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isRecorrente) {
     
-    // 🔥 PASSO 1: ATUALIZAR UI IMEDIATAMENTE (Optimistic UI)
-    
-    // 1.1 Atualizar no cache local
+    // 1. Atualizar UI imediatamente
     let contaAtualizada = null;
     
     if (isRecorrente && regraId && regraId !== 'undefined') {
-        // Para conta recorrente
         const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
         const contasRecorrentes = App.dataCache.contas.filter(c => c.regra_id == regraId);
         contaAtualizada = contasRecorrentes.find(c => {
@@ -12214,7 +12256,6 @@ async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isR
             contaAtualizada.data_pagamento = null;
         }
     } else {
-        // Conta única
         contaAtualizada = App.dataCache.contas.find(c => c.id == id);
         if (contaAtualizada) {
             contaAtualizada.valor_pago = 0;
@@ -12223,24 +12264,91 @@ async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isR
         }
     }
     
-    // 1.2 Atualizar saldo no cache local (devolver o valor)
     if (App.saldoCentral.id && valor > 0) {
         App.saldoCentral.valor = App.saldoCentral.valor + valor;
         atualizarSaldoHeader();
     }
     
-    // 1.3 FORÇAR ATUALIZAÇÃO VISUAL IMEDIATA
     await atualizarCalendario();
     
-    // Atualizar a área de conteúdo (lista de contas)
     let { mes: mesAtual, ano: anoAtual } = getMesAnoAtual();
     let content = document.getElementById('dynamicContent');
     await renderizarTudo(content, mesAtual, anoAtual);
     
-    // Mostrar feedback rápido
     showToast(`✅ Pagamento desfeito! ${formatCurrency(valor)} voltou ao saldo`, 'success', 1500);
     
-    // 🔥 PASSO 2: ADICIONAR À FILA PARA PROCESSAR EM BACKGROUND
+    fecharModal();
+    
+    // ============================================
+    // RECRIAR NO GOOGLE
+    // ============================================
+    
+    try {
+        // Buscar a regra para recriar no Google
+        if (isRecorrente && regraId && regraId !== 'undefined') {
+            const { data: regra } = await App.supabase
+                .from('regras_contas')
+                .select('*')
+                .eq('id', regraId)
+                .single();
+            
+            if (regra) {
+                console.log('🔄 Recriando evento no Google...');
+                await sincronizarRegraGoogle(regra);
+            }
+        } else {
+            // Para contas únicas, recriar a conta como evento no Google
+            const { data: conta } = await App.supabase
+                .from('contas')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (conta) {
+                // Criar evento no Google para esta conta
+                const { data: token } = await App.supabase
+                    .from('google_tokens')
+                    .select('access_token, calendar_id')
+                    .eq('usuario_familia_id', App.usuarioAtual?.id)
+                    .single();
+                
+                if (token && token.calendar_id) {
+                    const dataStr = `${conta.ano}-${String(conta.mes).padStart(2, '0')}-${String(conta.dia).padStart(2, '0')}`;
+                    
+                    const eventBody = {
+                        summary: conta.descricao,
+                        description: `💰 Conta - My Life\nID Conta: ${conta.id}\nValor: R$ ${conta.valor.toFixed(2)}`,
+                        start: { date: dataStr },
+                        end: { date: dataStr }
+                    };
+                    
+                    const response = await fetch(
+                        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token.access_token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(eventBody)
+                        }
+                    );
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        await App.supabase
+                            .from('contas')
+                            .update({ google_event_id: data.id })
+                            .eq('id', id);
+                        console.log(`✅ Evento recriado no Google para conta ${id}`);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ Erro ao recriar no Google:', error);
+    }
+    
     adicionarNaFila('desfazer_pagamento', {
         id: id,
         valor: valor,
@@ -12250,21 +12358,7 @@ async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isR
         ano: ano,
         isRecorrente: isRecorrente
     });
-    
-    // 🔥 PASSO 3: FECHAR O MODAL
-    fecharModal();
 }
-
-        function editarItem(id, tipo, isRecorrente, regraId, isIndividual, individualId, dia, mes, ano) {
-            if (tipo === 'gasto') {
-                editarGasto(id);
-            } else if (tipo === 'evento') {
-                editarEvento(id, isRecorrente, regraId, isIndividual, individualId, dia, mes, ano);
-            } else if (tipo === 'conta') {
-                editarConta(id, isRecorrente, regraId, dia, mes, ano);
-            }
-        }
-
 
 
 
@@ -12701,6 +12795,10 @@ async function executarExclusaoEventoSimples(id, isRecorrente, regraId, dia, mes
 
 
 
+// ============================================
+// VERIFICAR EVENTOS DELETADOS NO GOOGLE - VERSÃO CORRIGIDA (SEM updated_at)
+// ============================================
+
 async function verificarEventosDeletadosNoGoogle() {
     const supabaseClient = App.supabase;
     const userId = App.currentUser?.id;
@@ -12740,32 +12838,34 @@ async function verificarEventosDeletadosNoGoogle() {
             }
         }
         
-        // 🔴 BUSCAR EVENTOS (já funciona)
-        const { data: eventosApp } = await supabaseClient
+        // 🔴 CORRIGIDO: SEM updated_at
+        const { data: eventosApp, error: eventosError } = await supabaseClient
             .from('eventos')
-            .select('id, google_event_id, updated_at')
+            .select('id, google_event_id')  // 🔴 REMOVIDO updated_at
             .eq('user_id', userId)
             .not('google_event_id', 'is', null);
         
-        // 🔴 BUSCAR CONTAS (ADICIONADO)
-        const { data: contasApp } = await supabaseClient
+        if (eventosError) {
+            console.log('⚠️ Erro ao buscar eventos:', eventosError.message);
+            return;
+        }
+        
+        // 🔴 CORRIGIDO: SEM updated_at
+        const { data: contasApp, error: contasError } = await supabaseClient
             .from('contas')
-            .select('id, google_event_id, updated_at')
+            .select('id, google_event_id')  // 🔴 REMOVIDO updated_at
             .eq('user_id', userId)
             .not('google_event_id', 'is', null);
         
-        const agora = new Date();
-        const cincoSegundosAtras = new Date(agora.getTime() - 5000);
+        if (contasError) {
+            console.log('⚠️ Erro ao buscar contas:', contasError.message);
+            return;
+        }
         
         let deletados = 0;
         
-        // 🔴 PROCESSAR EVENTOS (INALTERADO)
+        // Processar eventos
         for (const evento of eventosApp || []) {
-            const eventoAtualizado = new Date(evento.updated_at);
-            if (eventoAtualizado > cincoSegundosAtras) {
-                continue;
-            }
-            
             if (!googleEventIds.has(evento.id)) {
                 console.log(`🗑️ Evento ${evento.id} não existe mais no Google, deletando do App`);
                 await supabaseClient
@@ -12777,13 +12877,8 @@ async function verificarEventosDeletadosNoGoogle() {
             }
         }
         
-        // 🔴 PROCESSAR CONTAS (ADICIONADO)
+        // Processar contas
         for (const conta of contasApp || []) {
-            const contaAtualizada = new Date(conta.updated_at);
-            if (contaAtualizada > cincoSegundosAtras) {
-                continue;
-            }
-            
             if (!googleEventIds.has(conta.id)) {
                 console.log(`🗑️ Conta ${conta.id} não existe mais no Google, deletando do App`);
                 await supabaseClient
@@ -12808,7 +12903,17 @@ async function verificarEventosDeletadosNoGoogle() {
 }
 
 
+// ============================================
+// PARAR POLLING DO GOOGLE
+// ============================================
 
+function pararPollingGoogle() {
+    if (intervaloPollingGoogle) {
+        clearInterval(intervaloPollingGoogle);
+        intervaloPollingGoogle = null;
+        console.log('⏹️ Polling do Google parado');
+    }
+}
 
 
     function selecionarExclusao(tipo, id, tipoItem, isRecorrente, regraId, dia, mes, ano, isIndividual, individualId) {
@@ -17331,7 +17436,11 @@ async function obterTokenFCM() {
 let intervaloPollingGoogle = null;
 
 // ============================================
-// POLLING SILENCIOSO (sem notificações)
+// sincronizarGoogleParaMyLife - VERSÃO CORRIGIDA
+// ============================================
+
+// ============================================
+// SINCRONIZAR GOOGLE PARA MY LIFE - CORRIGIDO
 // ============================================
 
 async function sincronizarGoogleParaMyLife() {
@@ -17452,15 +17561,45 @@ async function sincronizarGoogleParaMyLife() {
         
         console.log(`📊 Polling (${App.usuarioAtual.apelido}): ${items.length} eventos encontrados no Google`);
         
-        let atualizados = 0;
         let criados = 0;
-        const googleEventIds = new Set();
+        let ignorados = 0;
         
         for (const item of items) {
             const description = item.description || '';
-            const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
+            const summary = item.summary || '';
             
-            let titulo = item.summary || 'Sem título';
+            // Verificar se é evento do My Life
+            if (description.includes('My Life') || 
+                description.includes('Conta recorrente') ||
+                description.includes('ID Regra:') ||
+                description.includes('💰 Conta recorrente') ||
+                description.includes('ID My Life:')) {
+                ignorados++;
+                continue;
+            }
+            
+            // Verificar se já existe no My Life
+            const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
+            if (myLifeIdMatch) {
+                const myLifeId = parseInt(myLifeIdMatch[1]);
+                // 🔴 CORRIGIDO: SEM updated_at
+const { data: existente } = await supabaseClient
+    .from('eventos')
+    .select('id')  // 🔴 APENAS id, sem updated_at
+    .eq('user_id', userId)
+    .eq('titulo', titulo)
+    .eq('dia', dia)
+    .eq('mes', mes)
+    .eq('ano', ano)
+    .maybeSingle();
+                
+                if (existente) {
+                    ignorados++;
+                    continue;
+                }
+            }
+            
+            let titulo = summary || 'Sem título';
             titulo = titulo.replace(/^📅 /, '').replace(/^💰 /, '').replace(/^.*\[TAREFA\] /, '');
             
             const descricao = item.description?.split('\n\nID My Life:')[0] || '';
@@ -17485,100 +17624,55 @@ async function sincronizarGoogleParaMyLife() {
             const mes = dataInicio.getMonth() + 1;
             const dia = dataInicio.getDate();
             
-            if (myLifeIdMatch) {
-                const myLifeId = parseInt(myLifeIdMatch[1]);
-                googleEventIds.add(myLifeId);
-                console.log(`🔄 Atualizando evento ID ${myLifeId}: "${titulo}"`);
-                
-                await supabaseClient
-                    .from('eventos')
-                    .update({
-                        titulo: titulo,
-                        descricao: descricao,
-                        local: local,
-                        hora: isDiaInteiro ? null : hora,
-                        dia: dia,
-                        mes: mes,
-                        ano: ano
-                    })
-                    .eq('id', myLifeId)
-                    .eq('user_id', userId);
-                atualizados++;
-            } else {
-                // Verificar se é uma conta (pelo título com 💰)
-                const isConta = titulo.startsWith('💰');
-                
-                if (isConta) {
-                    // Remover o ícone 💰 do título
-                    titulo = titulo.replace(/^💰 /, '').replace(/ - R\$ [\d.,]+$/, '');
-                    
-                    // Buscar conta pelo título
-                    const { data: contaExistente } = await supabaseClient
-                        .from('contas')
-                        .select('id')
-                        .eq('user_id', userId)
-                        .eq('descricao', titulo)
-                        .maybeSingle();
-                    
-                    if (contaExistente) {
-                        googleEventIds.add(contaExistente.id);
-                        await supabaseClient
-                            .from('contas')
-                            .update({ google_event_id: item.id })
-                            .eq('id', contaExistente.id);
-                        atualizados++;
-                        console.log(`🔄 Conta atualizada: "${titulo}"`);
-                    }
-                } else {
-                    // Buscar evento existente pelo título e data
-                    const { data: existente } = await supabaseClient
-                        .from('eventos')
-                        .select('id')
-                        .eq('user_id', userId)
-                        .eq('titulo', titulo)
-                        .eq('dia', dia)
-                        .eq('mes', mes)
-                        .eq('ano', ano)
-                        .maybeSingle();
-                    
-                    if (existente) {
-                        googleEventIds.add(existente.id);
-                        await supabaseClient
-                            .from('eventos')
-                            .update({ google_event_id: item.id })
-                            .eq('id', existente.id);
-                        atualizados++;
-                    } else {
-                        const { data: newEvent } = await supabaseClient
-                            .from('eventos')
-                            .insert({
-                                user_id: userId,
-                                titulo: titulo,
-                                descricao: descricao,
-                                local: local,
-                                hora: isDiaInteiro ? null : hora,
-                                ano: ano,
-                                mes: mes,
-                                dia: dia,
-                                is_recorrente: false,
-                                added_by: 'Google Calendar',
-                                google_event_id: item.id
-                            })
-                            .select();
-                        if (newEvent && newEvent[0]) {
-                            googleEventIds.add(newEvent[0].id);
-                            criados++;
-                        }
-                    }
-                }
+            // Verificar duplicata por título + data
+            const { data: existenteMyLife } = await supabaseClient
+                .from('eventos')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('titulo', titulo)
+                .eq('dia', dia)
+                .eq('mes', mes)
+                .eq('ano', ano)
+                .maybeSingle();
+            
+            if (existenteMyLife) {
+                ignorados++;
+                continue;
+            }
+            
+            // Criar evento no My Life
+            const { data: newEvent, error: insertError } = await supabaseClient
+                .from('eventos')
+                .insert({
+                    user_id: userId,
+                    titulo: titulo,
+                    descricao: descricao,
+                    local: local,
+                    hora: isDiaInteiro ? null : hora,
+                    ano: ano,
+                    mes: mes,
+                    dia: dia,
+                    is_recorrente: false,
+                    added_by: 'Google Calendar',
+                    google_event_id: item.id,
+                    data_inicio: `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`,
+                    data_fim: `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+                })
+                .select();
+            
+            if (insertError) {
+                console.error('❌ Erro ao inserir evento:', insertError);
+                continue;
+            }
+            
+            if (newEvent && newEvent[0]) {
+                criados++;
+                console.log(`✅ Evento importado: ${titulo} (${dia}/${mes}/${ano})`);
             }
         }
         
-        // Verificar eventos deletados no Google (já inclui contas)
-        await verificarEventosDeletadosNoGoogle();
-        
-        if (criados > 0 || atualizados > 0) {
-            console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${atualizados} atualizados`);
+        if (criados > 0) {
+            console.log(`🔄 Polling (${App.usuarioAtual.apelido}): ${criados} criados, ${ignorados} ignorados`);
             await carregarDados(true);
             await atualizarCalendario();
             await mostrarConteudo();
@@ -17588,7 +17682,6 @@ async function sincronizarGoogleParaMyLife() {
         console.error('Erro no polling:', error);
     }
 }
-
 
 
 
@@ -17892,7 +17985,113 @@ async function forcarSincronizacaoCompleta() {
 }
 
 
+// ============================================
+// verificarECorrigirCalendarId - CORRIGIR AUTOMATICAMENTE
+// ============================================
 
+async function verificarECorrigirCalendarId() {
+    console.log('🔍 Verificando calendar_id...');
+    
+    const { data: token } = await App.supabase
+        .from('google_tokens')
+        .select('access_token, calendar_id')
+        .eq('usuario_familia_id', App.usuarioAtual?.id)
+        .single();
+    
+    if (!token) {
+        console.log('⚠️ Token não encontrado');
+        return false;
+    }
+    
+    if (!token.calendar_id || token.calendar_id === 'null' || token.calendar_id === '') {
+        console.log('⚠️ Calendar_id vazio. Tentando corrigir...');
+        return await corrigirCalendarIdAutomatico(token);
+    }
+    
+    // Verificar se o calendário existe
+    try {
+        const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}`,
+            {
+                headers: { 'Authorization': `Bearer ${token.access_token}` }
+            }
+        );
+        
+        if (response.status === 404) {
+            console.log('⚠️ Calendário não existe. Recriando...');
+            return await corrigirCalendarIdAutomatico(token);
+        }
+        
+        console.log('✅ Calendar_id válido!');
+        return true;
+        
+    } catch (error) {
+        console.log('⚠️ Erro ao verificar calendar_id:', error.message);
+        return await corrigirCalendarIdAutomatico(token);
+    }
+}
+
+async function corrigirCalendarIdAutomatico(token) {
+    try {
+        // Buscar calendários existentes
+        const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+            headers: { 'Authorization': `Bearer ${token.access_token}` }
+        });
+        
+        if (!listResponse.ok) {
+            console.log('❌ Erro ao buscar calendários');
+            return false;
+        }
+        
+        const data = await listResponse.json();
+        const calendars = data.items || [];
+        const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+        const existingCalendar = calendars.find(c => c.summary === calendarName);
+        
+        let calendarId;
+        
+        if (existingCalendar) {
+            calendarId = existingCalendar.id;
+            console.log(`✅ Calendário encontrado: ${calendarId}`);
+        } else {
+            console.log('📅 Criando novo calendário...');
+            const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    summary: calendarName,
+                    description: 'Calendário sincronizado do My Life',
+                    timeZone: 'America/Sao_Paulo'
+                })
+            });
+            
+            if (!createResponse.ok) {
+                console.log('❌ Erro ao criar calendário');
+                return false;
+            }
+            
+            const newCalendar = await createResponse.json();
+            calendarId = newCalendar.id;
+            console.log(`✅ Novo calendário criado: ${calendarId}`);
+        }
+        
+        // Salvar no banco
+        await App.supabase
+            .from('google_tokens')
+            .update({ calendar_id: calendarId })
+            .eq('usuario_familia_id', App.usuarioAtual?.id);
+        
+        console.log('✅ Calendar_id corrigido com sucesso!');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro ao corrigir calendar_id:', error);
+        return false;
+    }
+}
 
 
 async function init() {
@@ -18326,6 +18525,99 @@ async function init() {
         console.error('Erro na inicialização:', error);
         showToast('Erro ao iniciar: ' + error.message, 'error');
     }
+
+
+// ============================================
+// ADICIONAR NO FINAL DA FUNÇÃO init
+// ============================================
+
+    // 🔴 VERIFICAR E CORRIGIR CALENDAR_ID AUTOMATICAMENTE (após 5 segundos)
+    setTimeout(async () => {
+        if (App.currentUser && App.isOnline) {
+            try {
+                // Verificar se a função existe
+                if (typeof verificarECorrigirCalendarId === 'function') {
+                    await verificarECorrigirCalendarId();
+                } else {
+                    // Função auxiliar inline se não existir
+                    const { data: token } = await App.supabase
+                        .from('google_tokens')
+                        .select('access_token, calendar_id')
+                        .eq('usuario_familia_id', App.usuarioAtual?.id)
+                        .single();
+                    
+                    if (token && (!token.calendar_id || token.calendar_id === 'null' || token.calendar_id === '')) {
+                        console.log('⚠️ Calendar_id vazio. Tentando corrigir...');
+                        try {
+                            const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+                                headers: { 'Authorization': `Bearer ${token.access_token}` }
+                            });
+                            
+                            if (listResponse.ok) {
+                                const calendarsData = await listResponse.json();
+                                const calendars = calendarsData.items || [];
+                                const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+                                const existingCalendar = calendars.find(c => c.summary === calendarName);
+                                
+                                if (existingCalendar) {
+                                    await App.supabase
+                                        .from('google_tokens')
+                                        .update({ calendar_id: existingCalendar.id })
+                                        .eq('usuario_familia_id', App.usuarioAtual?.id);
+                                    console.log(`✅ Calendar_id corrigido: ${existingCalendar.id}`);
+                                }
+                            }
+                        } catch (e) {
+                            console.log('⚠️ Erro ao corrigir calendar_id:', e.message);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Erro na verificação de calendar_id:', e.message);
+            }
+        }
+    }, 5000);
+    
+    // 🔴 VERIFICAR PERIODICAMENTE O CALENDAR_ID (a cada 10 minutos)
+    setInterval(async () => {
+        if (App.currentUser && App.isOnline) {
+            try {
+                if (typeof verificarECorrigirCalendarId === 'function') {
+                    await verificarECorrigirCalendarId();
+                }
+            } catch (e) {
+                // Silencioso
+            }
+        }
+    }, 10 * 60 * 1000); // 10 minutos
+
+    // ============================================
+// ADICIONAR NO FINAL DA FUNÇÃO init
+// ============================================
+
+// Iniciar manutenção automática do calendário (a cada 24h)
+setInterval(async () => {
+    if (App.currentUser && App.isOnline) {
+        await manterCalendarioAtualizado();
+    }
+}, 24 * 60 * 60 * 1000); // 24 horas
+
+// Executar uma vez após 60 segundos do login
+setTimeout(async () => {
+    if (App.currentUser && App.isOnline) {
+        console.log('🔄 Executando manutenção inicial do calendário...');
+        await manterCalendarioAtualizado();
+    }
+}, 60000); // 60 segundos
+
+// Sincronizar regras pendentes ao iniciar (após 10 segundos)
+setTimeout(async () => {
+    if (App.currentUser && App.isOnline) {
+        console.log('🔄 Sincronizando regras pendentes...');
+        await sincronizarRegrasPendentes();
+    }
+}, 10000); // 10 segundos
+
 }
 
 
@@ -19317,12 +19609,1567 @@ function abrirPaginaModal(titulo, icone, url) {
 
 
 
+// ============================================
+// FUNÇÕES DE SINCRONIZAÇÃO COM GOOGLE - COMPLETO
+// ============================================
+
+/**
+ * Sincroniza uma regra de conta com o Google Calendar
+ * @param {Object} regra - A regra a ser sincronizada
+ * @returns {Promise<boolean>} - true se sincronizou com sucesso
+ */
+// ============================================
+// sincronizarRegraGoogle - VERSÃO COMPLETA CORRIGIDA
+// ============================================
+
+// ============================================
+// sincronizarRegraGoogle - COM VERIFICAÇÃO AUTOMÁTICA
+// ============================================
+
+async function sincronizarRegraGoogle(regra) {
+    console.log(`🔄 Sincronizando regra ${regra.id}: ${regra.descricao_base}`);
+    
+    // Verificar se é Premium
+    const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
+    if (!isPremium) {
+        console.log('⚠️ Usuário não é Premium - pulando sincronização');
+        return false;
+    }
+    
+    // Buscar token do Google
+    const { data: token, error: tokenError } = await App.supabase
+        .from('google_tokens')
+        .select('access_token, calendar_id, refresh_token, expires_at')
+        .eq('usuario_familia_id', App.usuarioAtual?.id)
+        .single();
+    
+    if (tokenError || !token) {
+        console.log('⚠️ Google não conectado para este usuário');
+        return false;
+    }
+    
+    // 🔴 VERIFICAR E CORRIGIR CALENDAR_ID AUTOMATICAMENTE
+    if (!token.calendar_id || token.calendar_id === 'null' || token.calendar_id === '') {
+        console.log('🔍 Calendar_id não encontrado. Verificando calendários existentes...');
+        
+        try {
+            // Buscar calendários do Google
+            const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+                headers: { 'Authorization': `Bearer ${token.access_token}` }
+            });
+            
+            if (listResponse.ok) {
+                const calendarsData = await listResponse.json();
+                const calendars = calendarsData.items || [];
+                
+                // Procurar calendário "My Life - [Nome]"
+                const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+                const existingCalendar = calendars.find(c => c.summary === calendarName);
+                
+                if (existingCalendar) {
+                    // Usar calendário existente
+                    console.log(`✅ Calendário encontrado: ${existingCalendar.summary}`);
+                    await App.supabase
+                        .from('google_tokens')
+                        .update({ calendar_id: existingCalendar.id })
+                        .eq('id', token.id);
+                    
+                    token.calendar_id = existingCalendar.id;
+                    console.log(`✅ Calendar_id atualizado para: ${existingCalendar.id}`);
+                } else {
+                    // Criar novo calendário
+                    console.log('📅 Criando novo calendário...');
+                    const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token.access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            summary: calendarName,
+                            description: 'Calendário sincronizado do My Life',
+                            timeZone: 'America/Sao_Paulo'
+                        })
+                    });
+                    
+                    if (createResponse.ok) {
+                        const newCalendar = await createResponse.json();
+                        await App.supabase
+                            .from('google_tokens')
+                            .update({ calendar_id: newCalendar.id })
+                            .eq('id', token.id);
+                        
+                        token.calendar_id = newCalendar.id;
+                        console.log(`✅ Novo calendário criado: ${newCalendar.id}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erro ao verificar/criar calendário:', error);
+            // Continua mesmo com erro - tenta usar o calendar_id que tem
+        }
+    }
+    
+    // 🔴 VERIFICAR SE O CALENDAR_ID É VÁLIDO
+    if (token.calendar_id) {
+        try {
+            const testResponse = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}`,
+                {
+                    headers: { 'Authorization': `Bearer ${token.access_token}` }
+                }
+            );
+            
+            // Se o calendário não existe (404), tentar recriar
+            if (testResponse.status === 404) {
+                console.log('⚠️ Calendário não existe mais. Recriando...');
+                
+                const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+                const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        summary: calendarName,
+                        description: 'Calendário sincronizado do My Life',
+                        timeZone: 'America/Sao_Paulo'
+                    })
+                });
+                
+                if (createResponse.ok) {
+                    const newCalendar = await createResponse.json();
+                    await App.supabase
+                        .from('google_tokens')
+                        .update({ calendar_id: newCalendar.id })
+                        .eq('id', token.id);
+                    
+                    token.calendar_id = newCalendar.id;
+                    console.log(`✅ Novo calendário criado: ${newCalendar.id}`);
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Erro ao verificar calendário, tentando continuar...');
+        }
+    }
+    
+    if (!token.calendar_id) {
+        console.log('❌ Não foi possível obter calendar_id');
+        return false;
+    }
+    
+    try {
+        // Calcular datas
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        
+        let dataInicio = new Date(regra.data_inicio + 'T12:00:00');
+        if (dataInicio < hoje) {
+            dataInicio = new Date(hoje);
+            const ultimoDia = new Date(dataInicio.getFullYear(), dataInicio.getMonth() + 1, 0).getDate();
+            dataInicio.setDate(Math.min(regra.dia_vencimento, ultimoDia));
+            if (dataInicio < hoje) {
+                dataInicio.setMonth(dataInicio.getMonth() + 1);
+                const ultimoDia2 = new Date(dataInicio.getFullYear(), dataInicio.getMonth() + 1, 0).getDate();
+                dataInicio.setDate(Math.min(regra.dia_vencimento, ultimoDia2));
+            }
+        }
+        
+        // Data fim: 12 meses à frente
+        const dataFim = new Date(dataInicio);
+        dataFim.setFullYear(dataFim.getFullYear() + 1);
+        const dataFimStr = dataFim.toISOString().split('T')[0].replace(/-/g, '');
+        const dataInicioStr = dataInicio.toISOString().split('T')[0];
+        
+        // ============================================
+        // 🔴 FUNÇÃO RRULE CORRIGIDA - SEMESTRAL E ANUAL
+        // ============================================
+        function getRRULE(regra, dataFimStr) {
+            const dia = regra.dia_vencimento;
+            const frequencia = regra.frequencia || 'mensal';
+            const dataInicioObj = new Date(regra.data_inicio + 'T12:00:00');
+            const mesInicio = dataInicioObj.getMonth() + 1;
+            const diaSemana = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dataInicioObj.getDay()];
+            
+            switch(frequencia) {
+                case 'semanal':
+                    return `RRULE:FREQ=WEEKLY;BYDAY=${diaSemana};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'quinzenal':
+                    return `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=${diaSemana};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'mensal':
+                    return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'bimestral':
+                    return `RRULE:FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'trimestral':
+                    return `RRULE:FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'semestral':
+                    // 🔴 CORRIGIDO: A CADA 6 MESES, NÃO TODO MÊS
+                    return `RRULE:FREQ=MONTHLY;INTERVAL=6;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                
+                case 'anual':
+                    // 🔴 CORRIGIDO: UMA VEZ POR ANO NO MÊS CORRETO
+                    return `RRULE:FREQ=YEARLY;BYMONTH=${mesInicio};BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                
+                default:
+                    return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+            }
+        }
+        
+        const rrule = getRRULE(regra, dataFimStr);
+        console.log(`📌 RRULE: ${rrule}`);
+        
+        // Montar o evento recorrente
+        const eventBody = {
+            summary: `${regra.descricao_base}`,
+            description: `💰 Conta recorrente - My Life\nID Regra: ${regra.id}\nFrequência: ${regra.frequencia}\nValor: R$ ${regra.valor.toFixed(2)}`,
+            start: { date: dataInicioStr },
+            end: { date: dataInicioStr },
+            recurrence: [rrule]
+        };
+        
+        let response;
+        
+        if (regra.google_event_id) {
+            // ATUALIZAR evento existente
+            response = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${regra.google_event_id}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(eventBody)
+                }
+            );
+        } else {
+            // CRIAR novo evento
+            response = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(eventBody)
+                }
+            );
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('❌ Erro no Google:', data);
+            return false;
+        }
+        
+        if (!regra.google_event_id) {
+            await App.supabase
+                .from('regras_contas')
+                .update({
+                    google_event_id: data.id,
+                    ultima_sincronizacao: new Date().toISOString(),
+                    sincronizado: true
+                })
+                .eq('id', regra.id);
+            
+            console.log(`✅ Regra ${regra.id} sincronizada! Google ID: ${data.id}`);
+        } else {
+            await App.supabase
+                .from('regras_contas')
+                .update({
+                    ultima_sincronizacao: new Date().toISOString(),
+                    sincronizado: true
+                })
+                .eq('id', regra.id);
+            
+            console.log(`✅ Regra ${regra.id} atualizada no Google!`);
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro ao sincronizar regra:', error);
+        return false;
+    }
+}
+
+/**
+ * Mantém o calendário sempre com 12 meses à frente
+ * Deve ser executado periodicamente (a cada 24h)
+ */
+// ============================================
+// manterCalendarioAtualizado - COM FREQUÊNCIA CORRETA
+// ============================================
+
+// ============================================
+// manterCalendarioAtualizado - COM VERIFICAÇÃO AUTOMÁTICA
+// ============================================
+
+async function manterCalendarioAtualizado() {
+    console.log('🔄 Mantendo calendário atualizado...');
+    
+    // Verificar se é Premium
+    const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
+    if (!isPremium) {
+        console.log('⚠️ Usuário não é Premium - pulando manutenção');
+        return;
+    }
+    
+    // Buscar token do Google
+    const { data: token, error: tokenError } = await App.supabase
+        .from('google_tokens')
+        .select('access_token, calendar_id')
+        .eq('usuario_familia_id', App.usuarioAtual?.id)
+        .single();
+    
+    if (tokenError || !token) {
+        console.log('⚠️ Token não encontrado');
+        return;
+    }
+    
+    // 🔴 VERIFICAR SE O CALENDAR_ID É VÁLIDO
+    if (!token.calendar_id || token.calendar_id === 'null' || token.calendar_id === '') {
+        console.log('⚠️ Calendar_id vazio. Tentando corrigir...');
+        try {
+            // Buscar calendários existentes
+            const listResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+                headers: { 'Authorization': `Bearer ${token.access_token}` }
+            });
+            
+            if (listResponse.ok) {
+                const calendarsData = await listResponse.json();
+                const calendars = calendarsData.items || [];
+                const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+                const existingCalendar = calendars.find(c => c.summary === calendarName);
+                
+                if (existingCalendar) {
+                    await App.supabase
+                        .from('google_tokens')
+                        .update({ calendar_id: existingCalendar.id })
+                        .eq('usuario_familia_id', App.usuarioAtual?.id);
+                    console.log(`✅ Calendar_id atualizado para: ${existingCalendar.id}`);
+                    token.calendar_id = existingCalendar.id;
+                } else {
+                    // Criar novo calendário
+                    console.log('📅 Criando novo calendário...');
+                    const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token.access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            summary: calendarName,
+                            description: 'Calendário sincronizado do My Life',
+                            timeZone: 'America/Sao_Paulo'
+                        })
+                    });
+                    
+                    if (createResponse.ok) {
+                        const newCalendar = await createResponse.json();
+                        await App.supabase
+                            .from('google_tokens')
+                            .update({ calendar_id: newCalendar.id })
+                            .eq('usuario_familia_id', App.usuarioAtual?.id);
+                        console.log(`✅ Novo calendário criado: ${newCalendar.id}`);
+                        token.calendar_id = newCalendar.id;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erro ao corrigir calendar_id:', error);
+            return;
+        }
+    }
+    
+    // 🔴 VERIFICAR SE O CALENDÁRIO AINDA EXISTE NO GOOGLE
+    if (token.calendar_id) {
+        try {
+            const testResponse = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}`,
+                {
+                    headers: { 'Authorization': `Bearer ${token.access_token}` }
+                }
+            );
+            
+            if (testResponse.status === 404) {
+                console.log('⚠️ Calendário não existe mais. Recriando...');
+                
+                const calendarName = `My Life - ${App.usuarioAtual?.apelido || App.usuarioAtual?.nome}`;
+                const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        summary: calendarName,
+                        description: 'Calendário sincronizado do My Life',
+                        timeZone: 'America/Sao_Paulo'
+                    })
+                });
+                
+                if (createResponse.ok) {
+                    const newCalendar = await createResponse.json();
+                    await App.supabase
+                        .from('google_tokens')
+                        .update({ calendar_id: newCalendar.id })
+                        .eq('usuario_familia_id', App.usuarioAtual?.id);
+                    console.log(`✅ Novo calendário criado: ${newCalendar.id}`);
+                    token.calendar_id = newCalendar.id;
+                } else {
+                    console.log('❌ Erro ao recriar calendário');
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Erro ao verificar calendário:', error.message);
+            // Continua tentando usar o calendar_id que tem
+        }
+    }
+    
+    if (!token.calendar_id) {
+        console.log('❌ Não foi possível obter calendar_id');
+        return;
+    }
+    
+    // Buscar regras que já têm google_event_id
+    const { data: regras, error } = await App.supabase
+        .from('regras_contas')
+        .select('*')
+        .eq('user_id', App.currentUser.id)
+        .eq('ativo', true)
+        .not('google_event_id', 'is', null);
+    
+    if (error || !regras || regras.length === 0) {
+        console.log('📌 Nenhuma regra para manter');
+        return;
+    }
+    
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    // Verificar se faltam menos de 3 meses para o fim da recorrência
+    const tresMesesFrente = new Date(hoje);
+    tresMesesFrente.setMonth(hoje.getMonth() + 3);
+    
+    for (const regra of regras) {
+        try {
+            // Buscar o evento no Google
+            const response = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${regra.google_event_id}`,
+                {
+                    headers: { 'Authorization': `Bearer ${token.access_token}` }
+                }
+            );
+            
+            if (!response.ok) {
+                // Se o evento não existe, limpar o google_event_id para recriar
+                if (response.status === 404) {
+                    console.log(`⚠️ Evento ${regra.google_event_id} não existe. Limpando referência...`);
+                    await App.supabase
+                        .from('regras_contas')
+                        .update({ google_event_id: null, sincronizado: false })
+                        .eq('id', regra.id);
+                }
+                continue;
+            }
+            
+            const evento = await response.json();
+            const recurrence = evento.recurrence || [];
+            const rrule = recurrence.find(r => r.startsWith('RRULE:'));
+            
+            if (!rrule) continue;
+            
+            // Extrair UNTIL
+            const untilMatch = rrule.match(/UNTIL=(\d{8})/);
+            if (!untilMatch) continue;
+            
+            const untilDate = new Date(
+                parseInt(untilMatch[1].substring(0, 4)),
+                parseInt(untilMatch[1].substring(4, 6)) - 1,
+                parseInt(untilMatch[1].substring(6, 8))
+            );
+            
+            // Se faltar menos de 3 meses, estender
+            const diffMonths = (untilDate.getFullYear() - hoje.getFullYear()) * 12 + 
+                              (untilDate.getMonth() - hoje.getMonth());
+            
+            if (diffMonths < 3) {
+                console.log(`📌 Estendendo recorrência da regra ${regra.id}`);
+                
+                // Nova data fim: 12 meses à frente
+                const novaDataFim = new Date(hoje);
+                novaDataFim.setFullYear(hoje.getFullYear() + 1);
+                novaDataFim.setMonth(hoje.getMonth() + 12);
+                const novaDataFimStr = novaDataFim.toISOString().split('T')[0].replace(/-/g, '');
+                
+                // 🔴 FUNÇÃO PARA GERAR RRULE COM FREQUÊNCIA CORRETA
+                function getRRULEManutencao(regra, dataFimStr) {
+                    const dia = regra.dia_vencimento;
+                    const frequencia = regra.frequencia || 'mensal';
+                    const dataInicioObj = new Date(regra.data_inicio + 'T12:00:00');
+                    const mesInicio = dataInicioObj.getMonth() + 1;
+                    const diaSemana = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dataInicioObj.getDay()];
+                    
+                    switch(frequencia) {
+                        case 'semanal':
+                            return `RRULE:FREQ=WEEKLY;BYDAY=${diaSemana};UNTIL=${dataFimStr}T235959Z`;
+                        case 'quinzenal':
+                            return `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=${diaSemana};UNTIL=${dataFimStr}T235959Z`;
+                        case 'mensal':
+                            return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                        case 'bimestral':
+                            return `RRULE:FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                        case 'trimestral':
+                            return `RRULE:FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                        case 'semestral':
+                            return `RRULE:FREQ=MONTHLY;INTERVAL=6;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                        case 'anual': {
+                            return `RRULE:FREQ=YEARLY;BYMONTH=${mesInicio};BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                        }
+                        default:
+                            return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dia};UNTIL=${dataFimStr}T235959Z`;
+                    }
+                }
+                
+                const novaRecurrence = getRRULEManutencao(regra, novaDataFimStr);
+                
+                // Atualizar no Google
+                const updateResponse = await fetch(
+                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${regra.google_event_id}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token.access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            recurrence: [novaRecurrence]
+                        })
+                    }
+                );
+                
+                if (updateResponse.ok) {
+                    await App.supabase
+                        .from('regras_contas')
+                        .update({ ultima_sincronizacao: new Date().toISOString() })
+                        .eq('id', regra.id);
+                    
+                    console.log(`✅ Recorrência estendida para ${novaDataFim.toLocaleDateString('pt-BR')}`);
+                } else {
+                    console.log(`⚠️ Erro ao estender recorrência: ${updateResponse.status}`);
+                }
+            }
+        } catch (error) {
+            console.error(`❌ Erro ao processar regra ${regra.id}:`, error);
+        }
+    }
+}
+
+
+/**
+ * Sincroniza todas as regras que estão marcadas como pendentes
+ * (sincronizado = FALSE)
+ */
+async function sincronizarRegrasPendentes() {
+    console.log('🔄 Sincronizando regras pendentes...');
+    
+    // Verificar se é Premium
+    const isPremium = App.plano === 'mensal' || App.plano === 'anual' || App.plano === 'teste';
+    if (!isPremium) {
+        console.log('⚠️ Usuário não é Premium - pulando');
+        return;
+    }
+    
+    // Buscar regras pendentes
+    const { data: regras, error } = await App.supabase
+        .from('regras_contas')
+        .select('*')
+        .eq('user_id', App.currentUser.id)
+        .eq('ativo', true)
+        .eq('sincronizado', false);
+    
+    if (error) {
+        console.error('❌ Erro ao buscar regras pendentes:', error);
+        return;
+    }
+    
+    if (!regras || regras.length === 0) {
+        console.log('✅ Nenhuma regra pendente para sincronizar');
+        return;
+    }
+    
+    console.log(`📊 Encontradas ${regras.length} regras pendentes`);
+    
+    let sincronizadas = 0;
+    for (const regra of regras) {
+        const sucesso = await sincronizarRegraGoogle(regra);
+        if (sucesso) {
+            sincronizadas++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    console.log(`✅ ${sincronizadas}/${regras.length} regras sincronizadas`);
+}
+
+
+
+
+
+
+
+
+// ============================================
+// removerDoGoogleAoPagar - REMOVER EVENTO DO GOOGLE
+// ============================================
+
+
+
+// ============================================
+// VERIFICAR EVENTOS DELETADOS NO GOOGLE - CORRIGIDO (SEM updated_at)
+// ============================================
+
+async function verificarEventosDeletadosNoGoogle() {
+    const supabaseClient = App.supabase;
+    const userId = App.currentUser?.id;
+    
+    if (!userId || !App.usuarioAtual) return;
+    
+    const { data: googleToken } = await supabaseClient
+        .from('google_tokens')
+        .select('access_token, calendar_id')
+        .eq('usuario_familia_id', App.usuarioAtual.id)
+        .maybeSingle();
+    
+    if (!googleToken) return;
+    
+    let calendarId = googleToken.calendar_id;
+    if (!calendarId) return;
+    
+    try {
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        
+        const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?timeMin=${trintaDiasAtras.toISOString()}&maxResults=100`,
+            { headers: { 'Authorization': `Bearer ${googleToken.access_token}` } }
+        );
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const googleEventIds = new Set();
+        
+        for (const item of data.items || []) {
+            const description = item.description || '';
+            const myLifeIdMatch = description.match(/ID My Life: (\d+)/);
+            if (myLifeIdMatch) {
+                googleEventIds.add(parseInt(myLifeIdMatch[1]));
+            }
+        }
+        
+        // 🔴 CORRIGIDO: Removido updated_at da consulta
+        const { data: eventosApp, error: eventosError } = await supabaseClient
+            .from('eventos')
+            .select('id, google_event_id')  // 🔴 SEM updated_at
+            .eq('user_id', userId)
+            .not('google_event_id', 'is', null);
+        
+        if (eventosError) {
+            console.log('⚠️ Erro ao buscar eventos:', eventosError.message);
+            return;
+        }
+        
+        const { data: contasApp, error: contasError } = await supabaseClient
+            .from('contas')
+            .select('id, google_event_id')  // 🔴 SEM updated_at
+            .eq('user_id', userId)
+            .not('google_event_id', 'is', null);
+        
+        if (contasError) {
+            console.log('⚠️ Erro ao buscar contas:', contasError.message);
+            return;
+        }
+        
+        let deletados = 0;
+        
+        // Processar eventos
+        for (const evento of eventosApp || []) {
+            if (!googleEventIds.has(evento.id)) {
+                console.log(`🗑️ Evento ${evento.id} não existe mais no Google, deletando do App`);
+                await supabaseClient
+                    .from('eventos')
+                    .delete()
+                    .eq('id', evento.id)
+                    .eq('user_id', userId);
+                deletados++;
+            }
+        }
+        
+        // Processar contas
+        for (const conta of contasApp || []) {
+            if (!googleEventIds.has(conta.id)) {
+                console.log(`🗑️ Conta ${conta.id} não existe mais no Google, deletando do App`);
+                await supabaseClient
+                    .from('contas')
+                    .delete()
+                    .eq('id', conta.id)
+                    .eq('user_id', userId);
+                deletados++;
+            }
+        }
+        
+        if (deletados > 0) {
+            console.log(`✅ ${deletados} itens removidos do App`);
+            await carregarDados(true);
+            await atualizarCalendario();
+            await mostrarConteudo();
+        }
+        
+    } catch (error) {
+        console.error('Erro ao verificar eventos deletados:', error);
+    }
+}
+
+
+// ============================================
+// FUNÇÃO PRINCIPAL: REMOVER EVENTO DO GOOGLE CALENDAR
+// ============================================
+
+/**
+ * Remove um evento do Google Calendar
+ * @param {string} eventId - ID do evento no My Life
+ * @param {string} tipo - 'conta', 'evento', 'tarefa', 'regra_conta'
+ * @param {string} descricao - Descrição para busca (fallback)
+ * @param {string} dataReferencia - Data no formato YYYY-MM-DD
+ * @param {string} googleEventId - ID do Google (se conhecido)
+ * @param {string} regraId - ID da regra (para contas recorrentes)
+ * @returns {Promise<boolean>} - true se removeu com sucesso
+ */
+// ============================================
+// REMOVER EVENTO GOOGLE - FUNÇÃO QUE FUNCIONA
+// ============================================
+
+async function removerEventoGoogle(eventId, tipo, descricao, dataReferencia, googleEventId = null, regraId = null) {
+    console.log(`🔍 REMOVENDO EVENTO GOOGLE: tipo=${tipo}, eventId=${eventId}, desc="${descricao}"`);
+    
+    try {
+        // 1. OBTER TOKEN
+        const { data: token } = await App.supabase
+            .from('google_tokens')
+            .select('access_token, calendar_id')
+            .eq('usuario_familia_id', App.usuarioAtual?.id)
+            .single();
+        
+        if (!token || !token.calendar_id) {
+            console.log('⚠️ Google não conectado');
+            return false;
+        }
+        
+        let googleId = googleEventId;
+        let descBusca = descricao;
+        let dataBusca = dataReferencia;
+        
+        // 2. BUSCAR GOOGLE_EVENT_ID NO BANCO
+        if (!googleId) {
+            if (tipo === 'conta') {
+                const { data: conta } = await App.supabase
+                    .from('contas')
+                    .select('google_event_id, descricao, dia, mes, ano')
+                    .eq('id', eventId)
+                    .single();
+                
+                if (conta) {
+                    googleId = conta.google_event_id;
+                    descBusca = conta.descricao || descricao;
+                    if (!dataBusca) {
+                        dataBusca = `${conta.ano}-${String(conta.mes).padStart(2, '0')}-${String(conta.dia).padStart(2, '0')}`;
+                    }
+                }
+            } else if (tipo === 'regra_conta') {
+                const { data: regra } = await App.supabase
+                    .from('regras_contas')
+                    .select('google_event_id, descricao_base')
+                    .eq('id', parseInt(eventId))
+                    .single();
+                
+                if (regra) {
+                    googleId = regra.google_event_id;
+                    descBusca = regra.descricao_base || descricao;
+                }
+            }
+        }
+        
+        // 3. DELETAR DIRETAMENTE SE TIVER ID
+        if (googleId) {
+            console.log(`🗑️ Deletando evento: ${googleId}`);
+            const deleteResponse = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${googleId}`,
+                {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token.access_token}` }
+                }
+            );
+            
+            if (deleteResponse.ok || deleteResponse.status === 404) {
+                console.log(`✅ Evento removido!`);
+                await limparGoogleEventId(eventId, tipo, regraId);
+                return true;
+            }
+        }
+        
+        // 4. BUSCAR POR DATA E TEXTO
+        if (dataBusca) {
+            console.log(`🔍 Buscando: "${descBusca}" em ${dataBusca}`);
+            
+            let dataStr = dataBusca;
+            if (dataBusca.includes('/')) {
+                const partes = dataBusca.split('/');
+                if (partes.length === 3) {
+                    dataStr = `${partes[2]}-${String(partes[1]).padStart(2, '0')}-${String(partes[0]).padStart(2, '0')}`;
+                }
+            }
+            
+            const searchUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events?timeMin=${dataStr}T00:00:00Z&timeMax=${dataStr}T23:59:59Z&maxResults=50`;
+            const response = await fetch(searchUrl, {
+                headers: { 'Authorization': `Bearer ${token.access_token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const descLimpa = descBusca.toLowerCase().trim();
+                
+                for (const item of data.items || []) {
+                    const summary = (item.summary || '').toLowerCase().trim();
+                    if (summary.includes(descLimpa) || descLimpa.includes(summary)) {
+                        console.log(`✅ Encontrado: "${item.summary}"`);
+                        const deleteResponse = await fetch(
+                            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${item.id}`,
+                            {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token.access_token}` }
+                            }
+                        );
+                        if (deleteResponse.ok) {
+                            console.log(`✅ Removido!`);
+                            await limparGoogleEventId(eventId, tipo, regraId);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.log(`⚠️ Não foi possível remover`);
+        return false;
+        
+    } catch (error) {
+        console.error('❌ Erro:', error);
+        return false;
+    }
+}
+
+// ============================================
+// LIMPAR GOOGLE_EVENT_ID - SIMPLES
+// ============================================
+
+async function limparGoogleEventId(eventId, tipo, regraId = null) {
+    try {
+        if (tipo === 'conta') {
+            await App.supabase
+                .from('contas')
+                .update({ google_event_id: null })
+                .eq('id', eventId);
+            console.log(`✅ google_event_id limpo da conta ${eventId}`);
+        } else if (tipo === 'regra_conta') {
+            const id = regraId || eventId;
+            await App.supabase
+                .from('regras_contas')
+                .update({ google_event_id: null })
+                .eq('id', parseInt(id));
+            console.log(`✅ google_event_id limpo da regra ${id}`);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao limpar:', error);
+    }
+}
+
+// ============================================
+// FORÇAR ATUALIZAÇÃO - SIMPLES
+// ============================================
+
+function forcarAtualizacaoGoogleCalendar() {
+    try {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'https://calendar.google.com/calendar/embed?src=primary&ctz=America/Sao_Paulo&_=' + Date.now();
+        document.body.appendChild(iframe);
+        setTimeout(() => iframe.remove(), 3000);
+        console.log('🔄 Forçando atualização');
+    } catch (e) {}
+}
+
+// ============================================
+// LIMPAR GOOGLE_EVENT_ID NO BANCO
+// ============================================
+
+async function limparGoogleEventId(eventId, tipo, regraId = null) {
+    try {
+        const supabaseClient = App.supabase;
+        
+        if (tipo === 'conta') {
+            await supabaseClient
+                .from('contas')
+                .update({ google_event_id: null })
+                .eq('id', eventId);
+            console.log(`✅ google_event_id limpo da conta ${eventId}`);
+        } else if (tipo === 'evento') {
+            await supabaseClient
+                .from('eventos')
+                .update({ google_event_id: null })
+                .eq('id', eventId);
+            console.log(`✅ google_event_id limpo do evento ${eventId}`);
+        } else if (tipo === 'tarefa') {
+            await supabaseClient
+                .from('tarefas')
+                .update({ google_event_id: null })
+                .eq('id', eventId);
+            console.log(`✅ google_event_id limpo da tarefa ${eventId}`);
+        } else if (tipo === 'regra_conta' || (regraId && regraId !== 'undefined')) {
+            const id = regraId || eventId;
+            await supabaseClient
+                .from('regras_contas')
+                .update({ google_event_id: null })
+                .eq('id', parseInt(id));
+            console.log(`✅ google_event_id limpo da regra ${id}`);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao limpar google_event_id:', error);
+    }
+}
+
+// ============================================
+// FORÇAR ATUALIZAÇÃO DO GOOGLE CALENDAR
+// ============================================
+
+function forcarAtualizacaoGoogleCalendar() {
+    try {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.src = 'https://calendar.google.com/calendar/embed?src=primary&ctz=America/Sao_Paulo&_=' + Date.now();
+        document.body.appendChild(iframe);
+        setTimeout(() => iframe.remove(), 3000);
+        console.log('🔄 Forçando atualização do Google Calendar');
+    } catch (e) {}
+}
+
+// ============================================
+// REMOVER DO GOOGLE AO PAGAR - VERSÃO COMPLETA
+// ============================================
+
+async function removerDoGoogleAoPagar(regraId, descricao, dataReferencia, isContaUnica = false, contaId = null) {
+    console.log(`🔴🔴🔴 removerDoGoogleAoPagar FOI CHAMADO! 🔴🔴🔴`);
+    console.log(`   regraId=${regraId}, contaId=${contaId}`);
+    console.log(`   data=${dataReferencia}, desc="${descricao}"`);
+    console.log(`   isContaUnica=${isContaUnica}`);
+    
+    // Determinar o ID e tipo
+    let eventId;
+    let tipo;
+    
+    if (isContaUnica && contaId) {
+        eventId = contaId;
+        tipo = 'conta';
+        console.log(`📌 Removendo CONTA ÚNICA ID: ${eventId}`);
+    } else if (regraId && regraId !== 'undefined' && regraId !== 'null' && regraId !== '') {
+        eventId = regraId;
+        tipo = 'regra_conta';
+        console.log(`📌 Removendo REGRA ID: ${eventId}`);
+    } else {
+        console.log(`⚠️ Nenhum ID válido para remover`);
+        return false;
+    }
+    
+    // 🔴 CHAMAR A FUNÇÃO QUE FUNCIONA
+    const resultado = await removerEventoGoogle(
+        eventId,
+        tipo,
+        descricao,
+        dataReferencia,
+        null,
+        isContaUnica ? null : regraId
+    );
+    
+    if (resultado) {
+        console.log(`✅ Evento removido do Google com sucesso!`);
+        forcarAtualizacaoGoogleCalendar();
+    } else {
+        console.log(`⚠️ Falha ao remover evento do Google`);
+    }
+    
+    return resultado;
+}
+
+
+// ============================================
+// PARAR POLLING DO GOOGLE
+// ============================================
+
+function pararPollingGoogle() {
+    if (intervaloPollingGoogle) {
+        clearInterval(intervaloPollingGoogle);
+        intervaloPollingGoogle = null;
+        console.log('⏹️ Polling do Google parado');
+    }
+}
+
+// ============================================
+// FORÇAR BUSCA NO GOOGLE
+// ============================================
+
+async function forcarBuscaGoogle() {
+    console.log('🔍 Forçando busca no Google Calendar...');
+    
+    if (!App.currentUser) {
+        showToast('Você precisa estar logado', 'warning');
+        return;
+    }
+    
+    if (!App.usuarioAtual) {
+        showToast('Selecione seu nome no topo primeiro', 'warning');
+        abrirSelecaoUsuario(false, null);
+        return;
+    }
+    
+    const { data: googleToken } = await App.supabase
+        .from('google_tokens')
+        .select('*')
+        .eq('usuario_familia_id', App.usuarioAtual.id)
+        .maybeSingle();
+    
+    if (!googleToken) {
+        showToast(`⚠️ ${App.usuarioAtual.apelido}, conecte o Google Calendar primeiro`, 'warning');
+        abrirModalGoogleAgenda();
+        return;
+    }
+    
+    showToast('🔄 Buscando eventos do Google Calendar...', 'info');
+    
+    try {
+        await sincronizarGoogleParaMyLife();
+        showToast('✅ Busca concluída!', 'success');
+    } catch (error) {
+        console.error('❌ Erro na busca:', error);
+        showToast('❌ Erro: ' + error.message, 'error');
+    }
+}
+
+
+
+
+// ============================================
+// CONFIRMAR PAGAMENTO - CHAMANDO REMOÇÃO EXPLICITAMENTE
+// ============================================
+
+async function confirmarPagamento(id, desc, regraId, dia, mes, ano, isRecorrente) {
+    if (App.processandoPagamento) {
+        showToast('Processando pagamento, aguarde...', 'warning');
+        return;
+    }
+    
+    let valorPago = parseCurrency(document.getElementById('pagamentoValorConta')?.value);
+    
+    if (isNaN(valorPago)) {
+        showToast('Digite um valor válido', 'warning');
+        return;
+    }
+    
+    const contaDesc = desc;
+    const nomeUsuario = getNomeUsuario();
+    
+    // ============================================
+    // UI IMEDIATA
+    // ============================================
+    
+    const isRecorrenteValida = isRecorrente && regraId && regraId !== 'undefined' && regraId !== 'null' && regraId !== '';
+    
+    if (isRecorrenteValida) {
+        const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const index = App.dataCache.contas.findIndex(c => {
+            if (c.regra_id != regraId) return false;
+            const dataConta = `${c.ano}-${String(c.mes).padStart(2, '0')}-${String(c.dia).padStart(2, '0')}`;
+            return dataConta === dataStr;
+        });
+        if (index !== -1) {
+            App.dataCache.contas.splice(index, 1);
+        }
+    } else {
+        const index = App.dataCache.contas.findIndex(c => c.id == id);
+        if (index !== -1) {
+            App.dataCache.contas.splice(index, 1);
+        }
+    }
+    
+    if (App.saldoCentral.id && valorPago > 0) {
+        App.saldoCentral.valor = App.saldoCentral.valor - valorPago;
+        atualizarSaldoHeader();
+    }
+    
+    await atualizarCalendario();
+    let { mes: mesAtual, ano: anoAtual } = getMesAnoAtual();
+    let content = document.getElementById('dynamicContent');
+    await renderizarTudo(content, mesAtual, anoAtual);
+    
+    if (valorPago === 0) {
+        showToast(`✅ "${contaDesc}" baixada!`, 'success', 1200);
+    } else {
+        showToast(`✅ Pagamento de ${formatCurrency(valorPago)} confirmado!`, 'success', 1200);
+    }
+    
+    fecharModal();
+    
+    // ============================================
+    // 🔴 REMOVER DO GOOGLE - CHAMADA EXPLÍCITA
+    // ============================================
+    
+    console.log('🔴🔴🔴 INICIANDO REMOÇÃO DO GOOGLE 🔴🔴🔴');
+    console.log(`   ID: ${id}`);
+    console.log(`   regraId: ${regraId}`);
+    console.log(`   isRecorrente: ${isRecorrente}`);
+    console.log(`   Data: ${dia}/${mes}/${ano}`);
+    console.log(`   Descrição: ${contaDesc}`);
+    
+    setTimeout(async () => {
+        try {
+            const dataReferencia = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+            console.log(`📅 Data referência: ${dataReferencia}`);
+            
+            let sucesso = false;
+            
+            if (isRecorrenteValida && regraId) {
+                // Conta recorrente
+                console.log(`🔍 Chamando removerDoGoogleAoPagar para regra: ${regraId}`);
+                sucesso = await removerDoGoogleAoPagar(
+                    regraId,           // regraId
+                    contaDesc,          // descricao
+                    dataReferencia,     // dataReferencia
+                    false,              // isContaUnica
+                    null                // contaId
+                );
+            } else if (id && !isRecorrenteValida) {
+                // Conta única
+                console.log(`🔍 Chamando removerDoGoogleAoPagar para conta: ${id}`);
+                sucesso = await removerDoGoogleAoPagar(
+                    null,               // regraId
+                    contaDesc,          // descricao
+                    dataReferencia,     // dataReferencia
+                    true,               // isContaUnica
+                    id                  // contaId
+                );
+            } else {
+                console.log(`⚠️ Nenhum ID válido para remover`);
+            }
+            
+            if (sucesso) {
+                console.log(`✅ Evento removido do Google com sucesso!`);
+                forcarAtualizacaoGoogleCalendar();
+            } else {
+                console.log(`⚠️ Falha ao remover do Google`);
+                
+                // 🔴 TENTATIVA EXTRA: Buscar manualmente
+                console.log(`🔍 Tentando remoção manual direta...`);
+                try {
+                    const { data: token } = await App.supabase
+                        .from('google_tokens')
+                        .select('access_token, calendar_id')
+                        .eq('usuario_familia_id', App.usuarioAtual?.id)
+                        .single();
+                    
+                    if (token && token.calendar_id) {
+                        const searchUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events?timeMin=${dataReferencia}T00:00:00Z&timeMax=${dataReferencia}T23:59:59Z&maxResults=50`;
+                        const response = await fetch(searchUrl, {
+                            headers: { 'Authorization': `Bearer ${token.access_token}` }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            const descLimpa = contaDesc.toLowerCase().trim();
+                            
+                            for (const item of data.items || []) {
+                                const summary = (item.summary || '').toLowerCase().trim();
+                                if (summary.includes(descLimpa) || descLimpa.includes(summary)) {
+                                    console.log(`✅ Encontrado manualmente: "${item.summary}"`);
+                                    const deleteResponse = await fetch(
+                                        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events/${item.id}`,
+                                        {
+                                            method: 'DELETE',
+                                            headers: { 'Authorization': `Bearer ${token.access_token}` }
+                                        }
+                                    );
+                                    if (deleteResponse.ok) {
+                                        console.log(`✅ Removido manualmente!`);
+                                        forcarAtualizacaoGoogleCalendar();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('⚠️ Erro na tentativa manual:', e.message);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erro ao remover do Google:', error);
+        }
+    }, 2000);
+    
+    // ============================================
+    // SALVAR NO BANCO (FILA)
+    // ============================================
+    
+    adicionarNaFila('pagar_conta', {
+        id: id,
+        valorPago: valorPago,
+        desc: contaDesc,
+        regraId: regraId,
+        dia: dia,
+        mes: mes,
+        ano: ano,
+        isRecorrente: isRecorrenteValida
+    });
+}
+// ============================================
+// FUNÇÃO AUXILIAR PARA FORÇAR ATUALIZAÇÃO DO GOOGLE CALENDAR
+// ============================================
+
+function forcarAtualizacaoGoogleCalendar() {
+    try {
+        // Tentar forçar atualização via iframe invisível
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.src = 'https://calendar.google.com/calendar/embed?src=primary&ctz=America/Sao_Paulo&_=' + Date.now();
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+            iframe.remove();
+        }, 3000);
+        console.log('🔄 Forçando atualização do Google Calendar via iframe');
+    } catch (e) {
+        // Ignorar erro
+    }
+}
+
+
+// ============================================
+// CONFIRMAR DESFAZER PAGAMENTO - VERSÃO CORRIGIDA
+// ============================================
+
+async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isRecorrente) {
+    
+    // 1. Atualizar UI imediatamente
+    let contaAtualizada = null;
+    const isRecorrenteValida = isRecorrente && regraId && regraId !== 'undefined' && regraId !== 'null' && regraId !== '';
+    
+    if (isRecorrenteValida) {
+        const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const contasRecorrentes = App.dataCache.contas.filter(c => c.regra_id == regraId);
+        contaAtualizada = contasRecorrentes.find(c => {
+            const dataConta = `${c.ano}-${String(c.mes).padStart(2, '0')}-${String(c.dia).padStart(2, '0')}`;
+            return dataConta === dataStr;
+        });
+        
+        if (contaAtualizada) {
+            contaAtualizada.valor_pago = 0;
+            contaAtualizada.status = 'pendente';
+            contaAtualizada.data_pagamento = null;
+        }
+    } else {
+        contaAtualizada = App.dataCache.contas.find(c => c.id == id);
+        if (contaAtualizada) {
+            contaAtualizada.valor_pago = 0;
+            contaAtualizada.status = 'pendente';
+            contaAtualizada.data_pagamento = null;
+        }
+    }
+    
+    if (App.saldoCentral.id && valor > 0) {
+        App.saldoCentral.valor = App.saldoCentral.valor + valor;
+        atualizarSaldoHeader();
+    }
+    
+    await atualizarCalendario();
+    
+    let { mes: mesAtual, ano: anoAtual } = getMesAnoAtual();
+    let content = document.getElementById('dynamicContent');
+    await renderizarTudo(content, mesAtual, anoAtual);
+    
+    showToast(`✅ Pagamento desfeito! ${formatCurrency(valor)} voltou ao saldo`, 'success', 1500);
+    
+    fecharModal();
+    
+    // ============================================
+    // RECRIAR NO GOOGLE (em background)
+    // ============================================
+    
+    if (isRecorrenteValida) {
+        setTimeout(async () => {
+            try {
+                const { data: regra } = await App.supabase
+                    .from('regras_contas')
+                    .select('*')
+                    .eq('id', parseInt(regraId))
+                    .single();
+                
+                if (regra) {
+                    console.log('🔄 Recriando evento no Google...');
+                    await sincronizarRegraGoogle(regra);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao recriar no Google:', error);
+            }
+        }, 500);
+    } else {
+        // Para contas únicas
+        setTimeout(async () => {
+            try {
+                const { data: conta } = await App.supabase
+                    .from('contas')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+                
+                if (conta) {
+                    const { data: token } = await App.supabase
+                        .from('google_tokens')
+                        .select('access_token, calendar_id')
+                        .eq('usuario_familia_id', App.usuarioAtual?.id)
+                        .single();
+                    
+                    if (token && token.calendar_id) {
+                        const dataStr = `${conta.ano}-${String(conta.mes).padStart(2, '0')}-${String(conta.dia).padStart(2, '0')}`;
+                        
+                        const eventBody = {
+                            summary: conta.descricao,
+                            description: `💰 Conta - My Life\nID Conta: ${conta.id}\nValor: R$ ${conta.valor.toFixed(2)}`,
+                            start: { date: dataStr },
+                            end: { date: dataStr }
+                        };
+                        
+                        const response = await fetch(
+                            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events`,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token.access_token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(eventBody)
+                            }
+                        );
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            await App.supabase
+                                .from('contas')
+                                .update({ google_event_id: data.id })
+                                .eq('id', id);
+                            console.log(`✅ Evento recriado no Google para conta ${id}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Erro ao recriar conta única no Google:', error);
+            }
+        }, 500);
+    }
+    
+    // Adicionar à fila
+    adicionarNaFila('desfazer_pagamento', {
+        id: id,
+        valor: valor,
+        regraId: regraId,
+        dia: dia,
+        mes: mes,
+        ano: ano,
+        isRecorrente: isRecorrenteValida
+    });
+}
+// ============================================
+// confirmarDesfazerPagamento - RECRIAR NO GOOGLE
+// ============================================
+
+// 🔴 ATENÇÃO: Esta função SUBSTITUI a função confirmarDesfazerPagamento existente
+async function confirmarDesfazerPagamento(id, valor, regraId, dia, mes, ano, isRecorrente) {
+    
+    // 1. Atualizar UI imediatamente
+    let contaAtualizada = null;
+    
+    if (isRecorrente && regraId && regraId !== 'undefined') {
+        const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const contasRecorrentes = App.dataCache.contas.filter(c => c.regra_id == regraId);
+        contaAtualizada = contasRecorrentes.find(c => {
+            const dataConta = `${c.ano}-${String(c.mes).padStart(2, '0')}-${String(c.dia).padStart(2, '0')}`;
+            return dataConta === dataStr;
+        });
+        
+        if (contaAtualizada) {
+            contaAtualizada.valor_pago = 0;
+            contaAtualizada.status = 'pendente';
+            contaAtualizada.data_pagamento = null;
+        }
+    } else {
+        contaAtualizada = App.dataCache.contas.find(c => c.id == id);
+        if (contaAtualizada) {
+            contaAtualizada.valor_pago = 0;
+            contaAtualizada.status = 'pendente';
+            contaAtualizada.data_pagamento = null;
+        }
+    }
+    
+    if (App.saldoCentral.id && valor > 0) {
+        App.saldoCentral.valor = App.saldoCentral.valor + valor;
+        atualizarSaldoHeader();
+    }
+    
+    await atualizarCalendario();
+    
+    let { mes: mesAtual, ano: anoAtual } = getMesAnoAtual();
+    let content = document.getElementById('dynamicContent');
+    await renderizarTudo(content, mesAtual, anoAtual);
+    
+    showToast(`✅ Pagamento desfeito! ${formatCurrency(valor)} voltou ao saldo`, 'success', 1500);
+    
+    fecharModal();
+    
+    // ============================================
+    // RECRIAR NO GOOGLE (em background)
+    // ============================================
+    
+    if (isRecorrente && regraId && regraId !== 'undefined') {
+        setTimeout(async () => {
+            try {
+                const { data: regra } = await App.supabase
+                    .from('regras_contas')
+                    .select('*')
+                    .eq('id', regraId)
+                    .single();
+                
+                if (regra) {
+                    console.log('🔄 Recriando evento no Google...');
+                    await sincronizarRegraGoogle(regra);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao recriar no Google:', error);
+            }
+        }, 500);
+    } else {
+        // Para contas únicas
+        setTimeout(async () => {
+            try {
+                const { data: conta } = await App.supabase
+                    .from('contas')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+                
+                if (conta) {
+                    const { data: token } = await App.supabase
+                        .from('google_tokens')
+                        .select('access_token, calendar_id')
+                        .eq('usuario_familia_id', App.usuarioAtual?.id)
+                        .single();
+                    
+                    if (token && token.calendar_id) {
+                        const dataStr = `${conta.ano}-${String(conta.mes).padStart(2, '0')}-${String(conta.dia).padStart(2, '0')}`;
+                        
+                        const eventBody = {
+                            summary: conta.descricao,
+                            description: `💰 Conta - My Life\nID Conta: ${conta.id}\nValor: R$ ${conta.valor.toFixed(2)}`,
+                            start: { date: dataStr },
+                            end: { date: dataStr }
+                        };
+                        
+                        const response = await fetch(
+                            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(token.calendar_id)}/events`,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token.access_token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(eventBody)
+                            }
+                        );
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            await App.supabase
+                                .from('contas')
+                                .update({ google_event_id: data.id })
+                                .eq('id', id);
+                            console.log(`✅ Evento recriado no Google para conta ${id}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Erro ao recriar conta única no Google:', error);
+            }
+        }, 500);
+    }
+    
+    // Adicionar à fila
+    adicionarNaFila('desfazer_pagamento', {
+        id: id,
+        valor: valor,
+        regraId: regraId,
+        dia: dia,
+        mes: mes,
+        ano: ano,
+        isRecorrente: isRecorrente
+    });
+}
+
 // Tornar funções globais para debug
 window.iniciarPollingGoogle = iniciarPollingGoogle;
 window.pararPollingGoogle = pararPollingGoogle;
 window.forcarBuscaGoogle = forcarBuscaGoogle;
 window.forcarSincronizacaoCompleta = forcarSincronizacaoCompleta;
 window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife;
+window.sincronizarRegraGoogle = sincronizarRegraGoogle;
+window.removerDoGoogleAoPagar = removerDoGoogleAoPagar;
+window.confirmarPagamento = confirmarPagamento;
+window.confirmarDesfazerPagamento = confirmarDesfazerPagamento;
+
+// ============================================
+// FUNÇÕES GLOBAIS PARA O CONSOLE
+// ============================================
+
+// Tornar funções globais para debug
+window.iniciarPollingGoogle = iniciarPollingGoogle || function() {};
+window.pararPollingGoogle = pararPollingGoogle || function() {};
+window.forcarBuscaGoogle = forcarBuscaGoogle || function() {};
+window.forcarSincronizacaoCompleta = forcarSincronizacaoCompleta || function() {};
+window.sincronizarGoogleParaMyLife = sincronizarGoogleParaMyLife || function() {};
+window.sincronizarRegraGoogle = sincronizarRegraGoogle || function() {};
+window.removerDoGoogleAoPagar = removerDoGoogleAoPagar || function() {};
+window.confirmarPagamento = confirmarPagamento || function() {};
+window.confirmarDesfazerPagamento = confirmarDesfazerPagamento || function() {};
 
 
 
